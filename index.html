@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ระบบจัดทำเอกสารบริษัท - Quotation &amp; Invoice System</title>
+<!-- Google Fonts: Sarabun — actually loads the typeface referenced by --font below
+     (matches the font used on https://asset-office.aomprueksa.workers.dev/). Without this
+     link, 'Sarabun' in the CSS font stack was just falling back to the OS's Segoe UI,
+     since the font isn't installed by default on most machines. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ==========================================================================
    0. RESET & BASE
@@ -35,7 +42,7 @@
      (.doc-page) intentionally keeps its own separate TH Sarabun New font declaration
      below, since official Thai documents need that exact typeface — the two are
      decoupled on purpose so modernizing the UI never touches document fidelity. */
-  --font:'Sarabun','Noto Sans Thai','Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,Arial,sans-serif;
+  --font:'Sarabun','Segoe UI',Tahoma,sans-serif;
 }
 [data-theme="dark"]{
   --white:#181b25;
@@ -719,12 +726,6 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
               <option value="Overdue">Overdue</option>
             </select>
           </div>
-          <div class="spacer"></div>
-          <button class="btn" id="btn-save-doc">💾 บันทึก</button>
-          <button class="btn" id="btn-convert-doc">↻ Convert to Invoice</button>
-          <button class="btn btn-accent" id="btn-print-doc">🖨 Print / Export PDF</button>
-          <button class="btn" id="btn-export-xls-doc">⬇ Export Excel (.xls)</button>
-          <button class="btn" id="btn-export-csv-doc">⬇ Export CSV</button>
         </div>
 
         <div class="editor-layout">
@@ -808,27 +809,28 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
           </div>
         </div>
 
-        <div class="grid grid-2">
-          <div class="card">
-            <div class="card-title">ช่องทางการชำระเงิน</div>
-            <div class="field"><label>เลือกบัญชี</label><select id="doc-bank-select"></select></div>
-            <div class="field"><label>หมายเหตุ</label><textarea id="doc-notes" rows="3">กรณีต้องการใช้บริการดังกล่าวข้างต้น กรุณาลงชื่อด้านล่างและส่งกลับมา</textarea></div>
-          </div>
-          <div class="card">
-            <div class="card-title">ลายเซ็น</div>
-            <div class="grid grid-2">
-              <div>
-                <div class="field"><label>ออกโดย / Prepared By</label><input type="text" id="sign-prepared-name"></div>
-                <div class="field"><label>ลายเซ็น (รูป)</label><input type="file" id="sign-prepared-file" accept="image/*"></div>
-              </div>
-              <div>
-                <div class="field"><label>ผู้มีอำนาจอนุมัติ / Authorized</label><input type="text" id="sign-auth-name"></div>
-                <div class="field"><label>ลายเซ็น (รูป)</label><input type="file" id="sign-auth-file" accept="image/*"></div>
-              </div>
-            </div>
-            <div class="field"><label>ตราประทับบริษัท (Stamp)</label><input type="file" id="sign-stamp-file" accept="image/*"></div>
-            <div class="field"><label class="checkbox-row"><input type="checkbox" id="chk-baht-source-net"> แสดงตัวอักษรจากยอดสุทธิ (Net Payable) แทน Grand Total</label></div>
-          </div>
+        <div class="card">
+          <div class="card-title">ช่องทางการชำระเงิน</div>
+          <div class="field"><label>เลือกบัญชี</label><select id="doc-bank-select"></select></div>
+          <div class="field"><label>หมายเหตุ</label><textarea id="doc-notes" rows="3">กรณีต้องการใช้บริการดังกล่าวข้างต้น กรุณาลงชื่อด้านล่างและส่งกลับมา</textarea></div>
+        </div>
+
+        <!-- The "ลายเซ็น" per-document override card was removed here per request — every
+             document still gets its Prepared/Authorized name+signature+stamp from the
+             Company Settings default (Documents.blankDocument() pulls DB.company.preparedByName/
+             preparedSignature/authorizedByName/authorizedSignature/stamp) and a chosen
+             Customer's own saved signer still overrides those automatically (Modals.pickCustomer)
+             — only this manual per-document override UI is gone. The elements below keep the
+             same ids, just hidden, so the existing read/write JS (Editor.loadIntoForm,
+             Editor.syncFormIntoDraft, the file-input change listeners in wireEvents) needs no
+             further changes. -->
+        <div style="display:none;" aria-hidden="true">
+          <input type="text" id="sign-prepared-name">
+          <input type="file" id="sign-prepared-file" accept="image/*">
+          <input type="text" id="sign-auth-name">
+          <input type="file" id="sign-auth-file" accept="image/*">
+          <input type="file" id="sign-stamp-file" accept="image/*">
+          <input type="checkbox" id="chk-baht-source-net">
         </div>
 
         <div class="card" id="payments-card" style="display:none;">
@@ -846,6 +848,10 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
           <div class="card">
             <div class="card-title">ขั้นตอนอนุมัติเอกสาร <span class="muted" style="font-weight:400;font-size:11.5px;">(ต้องบันทึกเอกสารก่อนจึงจะกดอนุมัติได้)</span></div>
             <div id="workflow-panel"></div>
+            <div class="toolbar no-print" style="margin-top:14px;">
+              <button class="btn" id="btn-save-doc">💾 บันทึก</button>
+              <button class="btn btn-accent" id="btn-print-doc">🖨 Print / Export PDF</button>
+            </div>
           </div>
         </div>
         </div><!-- /editor-layout -->
@@ -1304,18 +1310,45 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
         </div>
 
         <div class="card">
-          <div class="card-title">กำหนดสิทธิ์การเข้าถึงเมนู (ตาม Role)</div>
-          <div class="field-hint" style="margin-bottom:12px;">
-            เลือกได้ว่าแต่ละ Role เห็นเมนูอะไรบ้างในแถบด้านซ้าย — ตั้งค่านี้ซิงค์ผ่าน Supabase (ต้องเชื่อมต่อ Cloud Sync ไว้ที่ Settings ก่อน ถึงจะใช้ร่วมกันได้ทุกเครื่อง ไม่งั้นจะเก็บไว้ในเครื่องนี้เครื่องเดียว)
-            Role "Admin" เห็นทุกเมนูเสมอและปรับที่นี่ไม่ได้ — กันไม่ให้ Admin ล็อกตัวเองออกจากระบบโดยไม่ตั้งใจ
+          <div class="card-title">กำหนดสิทธิ์การใช้งาน (ตาม Role)</div>
+          <div class="field-hint" style="margin-bottom:10px;">
+            กำหนดได้ 2 ระดับ: (1) เมนูที่แต่ละ Role มองเห็นในแถบด้านซ้าย และ (2) สิทธิ์การดำเนินการกับเอกสาร
+            (เพิ่ม/แก้ไข/ลบ/อนุมัติ) แยกจากกัน — เหมาะสำหรับแบ่งหน้าที่ระหว่างผู้จัดทำ/ผู้อนุมัติ/ฝ่ายบัญชี
+            ตั้งค่านี้ซิงค์ผ่าน Supabase (ต้องเชื่อมต่อ Cloud Sync ไว้ที่ Settings ก่อน ถึงจะใช้ร่วมกันได้ทุกเครื่อง)
+            Role "Admin" ได้สิทธิ์เต็มเสมอและปรับที่นี่ไม่ได้ — กันไม่ให้ Admin ล็อกตัวเองออกจากระบบโดยไม่ตั้งใจ
           </div>
+          <div class="field-hint" id="role-perm-last-modified" style="margin-bottom:12px; font-style:italic;"></div>
+
+          <div class="toolbar" style="margin-bottom:10px;">
+            <input type="text" id="role-perm-search" placeholder="🔍 ค้นหาเมนู...">
+            <span class="muted" style="align-self:center; margin-left:8px;">คัดลอกสิทธิ์:</span>
+            <select id="role-perm-copy-from"></select>
+            <span class="muted" style="align-self:center;">→</span>
+            <select id="role-perm-copy-to"></select>
+            <button class="btn btn-sm" id="btn-role-perm-copy">📋 คัดลอก</button>
+          </div>
+
+          <div class="field-hint" style="margin:14px 0 6px; font-weight:600;">1) เมนูที่มองเห็น (View)</div>
           <div style="overflow-x:auto;">
             <table class="data-table" id="role-permissions-table">
               <thead><tr></tr></thead>
               <tbody></tbody>
             </table>
           </div>
-          <button class="btn btn-primary" id="btn-save-role-permissions" style="margin-top:14px;">💾 บันทึกสิทธิ์การเข้าถึง</button>
+
+          <div class="field-hint" style="margin:20px 0 6px; font-weight:600;">2) สิทธิ์การดำเนินการกับเอกสาร (ใบเสนอราคา/ใบแจ้งหนี้)</div>
+          <div style="overflow-x:auto;">
+            <table class="data-table" id="doc-action-permissions-table">
+              <thead><tr></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="toolbar" style="margin-top:14px;">
+            <button class="btn btn-primary" id="btn-save-role-permissions">💾 บันทึกสิทธิ์ทั้งหมด</button>
+            <button class="btn btn-sm" id="btn-role-perm-export-excel">⬇ Export Excel</button>
+            <button class="btn btn-sm" id="btn-role-perm-export-pdf">🖨 Export PDF</button>
+          </div>
         </div>
       </section>
 
@@ -1661,6 +1694,16 @@ const STORAGE_KEY = 'qis_db_v1';
  *  (Supabase Dashboard > Authentication > Users > reset password) instead. */
 const USERNAME_EMAIL_DOMAIN = 'users.local';
 
+/** Baked-in default Supabase project connection — embedded directly in the code so the
+ *  site works out-of-the-box for every visitor/device without anyone needing to paste
+ *  credentials into Settings first (same "just works like a normal login page" reasoning
+ *  as removing the Supabase-config link from the Login screen). Cloud.init() falls back
+ *  to these whenever DB.settings.supabaseUrl/supabaseKey are blank — see Cloud.init()
+ *  below. An admin can still point a specific device at a different Supabase project
+ *  from Settings > Cloud Sync if that's ever needed; that override always wins. */
+const DEFAULT_SUPABASE_URL = 'https://mlgdhzkitvbdhpponyqh.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'sb_publishable_iCx6AJNghw0baxurYZEF-w_vgROqWzO';
+
 /** Baked-in default company logo (WR — resized to <=1000px, same cap as
  *  Utils.fileToDataURL uses for uploads) so a brand-new/reset install and any
  *  browser that loses its saved settings (cleared cache, new device) still shows
@@ -1840,8 +1883,13 @@ const Cloud = {
    *  repeatedly (e.g. every time Settings are saved) — cheap, synchronous,
    *  does not itself verify the credentials are actually valid/reachable. */
   init(){
-    const url = ((DB && DB.settings && DB.settings.supabaseUrl) || '').trim();
-    const key = ((DB && DB.settings && DB.settings.supabaseKey) || '').trim();
+    // Falls back to the embedded DEFAULT_SUPABASE_URL/KEY whenever this device's own
+    // DB.settings values are blank — covers both brand-new visitors AND any
+    // already-visited browser whose localStorage happens to have them saved empty
+    // (Data.init()'s forward-compat backfill only fills genuinely-undefined keys, not
+    // ones already explicitly saved as '', so the fallback has to live here too).
+    const url = ((DB && DB.settings && DB.settings.supabaseUrl) || DEFAULT_SUPABASE_URL || '').trim();
+    const key = ((DB && DB.settings && DB.settings.supabaseKey) || DEFAULT_SUPABASE_KEY || '').trim();
     if(!url || !key || typeof window.supabase === 'undefined'){
       Cloud.client = null;
       Cloud.status = 'disabled';
@@ -2176,10 +2224,26 @@ const Auth = {
   isAdmin(){ return Auth.role() === 'admin'; },
   isPending(){ return Auth.isLoggedIn() && Auth.role() === 'pending'; },
   isApproved(){ return Auth.isLoggedIn() && !!Auth.profile && Auth.profile.role !== 'pending'; },
-  /** Step 2 (ผู้มีอำนาจอนุมัติ) approval button */
-  canApproveAuth(){ return Auth.isAdmin() || Auth.role() === 'authorized'; },
-  /** Step 3 (บัญชีอนุมัติ + วางบิล) approval button */
-  canApproveAcct(){ return Auth.isAdmin() || Auth.role() === 'accounting'; },
+  /** Effective Create/Edit/Delete/Approve permission for the CURRENT user's role on
+   *  the document workflow (quotations/invoices) — merges the Admin-configurable
+   *  override (DB.settings.docActionPermissions, set from the "สิทธิ์การดำเนินการกับ
+   *  เอกสาร" card on Admin > Users) with DEFAULT_DOC_ACTION_PERMISSIONS as the
+   *  fallback for any role not yet customized. Admin always allowed regardless —
+   *  never configurable, same reasoning as Auth.allowedViews(). */
+  canDoc(action){
+    if(Auth.isAdmin()) return true;
+    const role = Auth.role();
+    if(!role) return false;
+    const custom = DB.settings && DB.settings.docActionPermissions && DB.settings.docActionPermissions[role];
+    const perms = (custom && typeof custom === 'object') ? custom : (DEFAULT_DOC_ACTION_PERMISSIONS[role] || {});
+    return !!perms[action];
+  },
+  /** Step 2 (ผู้มีอำนาจอนุมัติ) approval button — role check PLUS the admin-configurable
+   *  "approve" toggle (Auth.canDoc), so an Admin can revoke approve rights per-role
+   *  without touching the underlying role assignment. */
+  canApproveAuth(){ return (Auth.isAdmin() || Auth.role() === 'authorized') && Auth.canDoc('approve'); },
+  /** Step 3 (บัญชีอนุมัติ + วางบิล) approval button — same as above for accounting. */
+  canApproveAcct(){ return (Auth.isAdmin() || Auth.role() === 'accounting') && Auth.canDoc('approve'); },
 
   /** Effective list of sidebar views the CURRENT user's role can reach — merges the
    *  Admin-configurable override (DB.settings.rolePermissions, set from Admin > Users
@@ -2713,9 +2777,17 @@ const Data = {
         // page). Empty object = every role still uses the DEFAULT_ROLE_VIEW_ACCESS
         // fallback, i.e. unchanged behavior until an admin actually customizes something.
         rolePermissions: {},
+        // Admin-configurable action-level permissions (Create/Edit/Delete/Approve) for
+        // the document workflow (quotations/invoices) — see DEFAULT_DOC_ACTION_PERMISSIONS,
+        // Auth.canDoc(), and the "สิทธิ์การดำเนินการกับเอกสาร" card on the Admin page.
+        // Empty object = every role uses DEFAULT_DOC_ACTION_PERMISSIONS as fallback.
+        docActionPermissions: {},
+        // Who last saved either permission table above, and when — shown on the Admin
+        // page (spec: "แสดงผู้แก้ไขสิทธิ์ล่าสุด พร้อมวันและเวลา"). null until first save.
+        rolePermissionsMeta: null,
         // Cloud Sync (Supabase) — see the Cloud module. Blank = disabled, falls back to
         // localStorage only (spec requirement: local storage stays the safety-net backend).
-        supabaseUrl: '', supabaseKey: ''
+        supabaseUrl: DEFAULT_SUPABASE_URL, supabaseKey: DEFAULT_SUPABASE_KEY
       }
     };
   },
@@ -3360,6 +3432,26 @@ const CONFIGURABLE_VIEWS = [
 // Only these 3 roles are configurable — 'admin' always gets everything (see above).
 const CONFIGURABLE_ROLES = ['accounting','authorized','preparer'];
 
+// Default action-level permissions (Create/Edit/Delete/Approve) for the document
+// workflow (quotations/invoices) — separate from the menu-access matrix above, which
+// only controls whether a role can SEE a page at all. This is the "แยก View/Create/
+// Edit/Delete/Approve จากกัน" axis, deliberately scoped to documents (where the
+// segregation of duties between ผู้จัดทำ/ผู้อนุมัติ/ฝ่ายบัญชี/Admin actually matters)
+// rather than every module in the app. Admin always has all four regardless of this
+// table (see Auth.canDoc()) — same non-configurable-admin reasoning as above.
+const DEFAULT_DOC_ACTION_PERMISSIONS = {
+  accounting: { create:true,  edit:true,  delete:true,  approve:true  },
+  authorized: { create:false, edit:false, delete:false, approve:true  },
+  preparer:   { create:true,  edit:true,  delete:false, approve:false }
+};
+// The 4 configurable actions shown as columns in the "สิทธิ์การดำเนินการกับเอกสาร" table.
+const DOC_ACTIONS = [
+  { id:'create',  label:'เพิ่ม (Create)' },
+  { id:'edit',    label:'แก้ไข (Edit)' },
+  { id:'delete',  label:'ลบ (Delete)' },
+  { id:'approve', label:'อนุมัติ (Approve)' }
+];
+
 const Render = {
 
   showView(viewName, opts){
@@ -3670,18 +3762,66 @@ const Render = {
    *  column here at all (see CONFIGURABLE_ROLES) since it always gets full access. */
   renderRolePermissionsTable(){
     const table = document.getElementById('role-permissions-table');
-    if(!table) return;
+    const actionTable = document.getElementById('doc-action-permissions-table');
+    if(!table || !actionTable) return;
+    const q = (document.getElementById('role-perm-search') && document.getElementById('role-perm-search').value || '').trim().toLowerCase();
+
+    // ---- Populate the copy-role dropdowns once (skip if already populated, so the
+    // admin's current from/to selection survives repeated re-renders while typing
+    // into the search box). ----
+    const fromSel = document.getElementById('role-perm-copy-from');
+    const toSel = document.getElementById('role-perm-copy-to');
+    if(fromSel && !fromSel.options.length){
+      fromSel.innerHTML = CONFIGURABLE_ROLES.map(r=>`<option value="${r}">${Utils.escapeHtml(Auth.roleLabel(r))}</option>`).join('');
+    }
+    if(toSel && !toSel.options.length){
+      toSel.innerHTML = CONFIGURABLE_ROLES.map(r=>`<option value="${r}">${Utils.escapeHtml(Auth.roleLabel(r))}</option>`).join('');
+      if(CONFIGURABLE_ROLES.length > 1) toSel.value = CONFIGURABLE_ROLES[1];
+    }
+
+    // ---- Table 1: menu access (View) ----
     const saved = (DB.settings && DB.settings.rolePermissions) || {};
     const effective = (role)=> Array.isArray(saved[role]) ? saved[role] : (DEFAULT_ROLE_VIEW_ACCESS[role] || []);
+    const filteredViews = q ? CONFIGURABLE_VIEWS.filter(v=> v.label.toLowerCase().includes(q)) : CONFIGURABLE_VIEWS;
 
     table.querySelector('thead').innerHTML = `<tr><th>เมนู</th>${CONFIGURABLE_ROLES.map(r=>`<th>${Utils.escapeHtml(Auth.roleLabel(r))}</th>`).join('')}</tr>`;
-    table.querySelector('tbody').innerHTML = CONFIGURABLE_VIEWS.map(v=>{
+    table.querySelector('tbody').innerHTML = filteredViews.length ? filteredViews.map(v=>{
       const cells = CONFIGURABLE_ROLES.map(role=>{
         const checked = effective(role).includes(v.id) ? 'checked' : '';
         return `<td style="text-align:center;"><input type="checkbox" class="role-perm-check" data-role="${role}" data-view="${v.id}" ${checked}></td>`;
       }).join('');
       return `<tr><td>${Utils.escapeHtml(v.label)}</td>${cells}</tr>`;
-    }).join('');
+    }).join('') : `<tr><td colspan="${CONFIGURABLE_ROLES.length+1}" class="muted" style="text-align:center;">ไม่พบเมนูที่ตรงกับคำค้นหา</td></tr>`;
+
+    // ---- Table 2: document action permissions (Create/Edit/Delete/Approve) ----
+    const savedActions = (DB.settings && DB.settings.docActionPermissions) || {};
+    const effectiveAction = (role)=>{
+      const custom = savedActions[role];
+      return (custom && typeof custom === 'object') ? custom : (DEFAULT_DOC_ACTION_PERMISSIONS[role] || {});
+    };
+    const filteredActions = q ? DOC_ACTIONS.filter(a=> a.label.toLowerCase().includes(q)) : DOC_ACTIONS;
+
+    actionTable.querySelector('thead').innerHTML = `<tr><th>สิทธิ์</th>${CONFIGURABLE_ROLES.map(r=>`<th>${Utils.escapeHtml(Auth.roleLabel(r))}</th>`).join('')}</tr>`;
+    actionTable.querySelector('tbody').innerHTML = filteredActions.length ? filteredActions.map(a=>{
+      const cells = CONFIGURABLE_ROLES.map(role=>{
+        const checked = effectiveAction(role)[a.id] ? 'checked' : '';
+        return `<td style="text-align:center;"><input type="checkbox" class="doc-action-perm-check" data-role="${role}" data-action="${a.id}" ${checked}></td>`;
+      }).join('');
+      return `<tr><td>${Utils.escapeHtml(a.label)}</td>${cells}</tr>`;
+    }).join('') : `<tr><td colspan="${CONFIGURABLE_ROLES.length+1}" class="muted" style="text-align:center;">ไม่พบสิทธิ์ที่ตรงกับคำค้นหา</td></tr>`;
+
+    // ---- Last modified hint (spec: "แสดงผู้แก้ไขสิทธิ์ล่าสุด พร้อมวันและเวลา") ----
+    const metaEl = document.getElementById('role-perm-last-modified');
+    const meta = DB.settings && DB.settings.rolePermissionsMeta;
+    if(metaEl){
+      if(meta && meta.updatedAt){
+        const dt = new Date(meta.updatedAt);
+        const dtLabel = Utils.formatDateThai(dt) + ' ' + dt.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+        metaEl.textContent = `แก้ไขล่าสุดโดย: ${meta.updatedByName || '-'} เมื่อ ${dtLabel}`;
+      }else{
+        metaEl.textContent = 'ยังไม่เคยมีการแก้ไขสิทธิ์ (ใช้ค่าเริ่มต้นของระบบ)';
+      }
+    }
   },
 
   /** Activity Logs page (sidebar "ประวัติการใช้งาน"). Reachable by every role (see
@@ -4086,8 +4226,8 @@ const Render = {
           <button class="btn btn-sm" title="Print / Export PDF" onclick="ExportMod.printById('${d.id}')">🖨 PDF</button>
           <button class="btn btn-sm" title="Export Excel" onclick="ExportMod.exportExcelById('${d.id}')">⬇ Excel</button>
           <button class="btn btn-sm" onclick="Actions.duplicateDoc('${d.id}')">Duplicate</button>
-          ${d.type==='QT' ? `<button class="btn btn-sm" onclick="Actions.convertDoc('${d.id}')">→INV</button>` : ''}
-          <button class="btn btn-sm btn-danger" onclick="Actions.deleteDoc('${d.id}')">ลบ</button>
+          ${(d.type==='QT' && Auth.canDoc('create')) ? `<button class="btn btn-sm" onclick="Actions.convertDoc('${d.id}')">→INV</button>` : ''}
+          ${Auth.canDoc('delete') ? `<button class="btn btn-sm btn-danger" onclick="Actions.deleteDoc('${d.id}')">ลบ</button>` : ''}
         </td>
       </tr>`;
     }).join('');
@@ -4207,8 +4347,8 @@ const Render = {
     document.getElementById('set-baht-source').value = s.bahtTextSource;
     document.getElementById('set-theme').value = s.theme;
     document.getElementById('set-currency').value = s.currency;
-    document.getElementById('set-supabase-url').value = s.supabaseUrl || '';
-    document.getElementById('set-supabase-key').value = s.supabaseKey || '';
+    document.getElementById('set-supabase-url').value = s.supabaseUrl || DEFAULT_SUPABASE_URL || '';
+    document.getElementById('set-supabase-key').value = s.supabaseKey || DEFAULT_SUPABASE_KEY || '';
     SettingsMod.renderCloudStatus();
   }
 };
@@ -4343,7 +4483,11 @@ const DocPreview = {
     // ---- signatures ----
     const preparedSig = doc.preparedSignature
       ? `<img src="${doc.preparedSignature}">` : '';
-    const authSig = doc.authorizedSignature
+    // Only show the Authorized signature image once step 2 (ผู้มีอำนาจอนุมัติ) has
+    // actually been approved (doc.workflow.authApproved) — before that, the line stays
+    // blank for a wet-ink signature, even though doc.authorizedSignature may already be
+    // pre-filled from the Company/Customer default signer (see Documents.blankDocument()).
+    const authSig = (doc.authorizedSignature && doc.workflow && doc.workflow.authApproved)
       ? `<img src="${doc.authorizedSignature}">` : '';
     const signHtml = `
       <div class="doc-sign-grid">
@@ -4891,6 +5035,14 @@ const Editor = {
       // draft rather than deep-mutating the old nested objects, so the old objects
       // this copy points to are untouched by the save that follows.
       const wasEditingId = UI.editingDocId;
+      if(!wasEditingId && !Auth.canDoc('create')){
+        Utils.toast('คุณไม่มีสิทธิ์สร้างเอกสารใหม่ (ติดต่อ Admin เพื่อขอสิทธิ์ "เพิ่ม")', 'err');
+        return;
+      }
+      if(wasEditingId && !Auth.canDoc('edit')){
+        Utils.toast('คุณไม่มีสิทธิ์แก้ไขเอกสารนี้ (ติดต่อ Admin เพื่อขอสิทธิ์ "แก้ไข")', 'err');
+        return;
+      }
       const beforeDoc = wasEditingId ? Documents.find(wasEditingId) : null;
       const beforeSnapshot = beforeDoc ? Object.assign({}, beforeDoc) : null;
       const prevStatus = beforeDoc ? beforeDoc.status : null;
@@ -5212,6 +5364,7 @@ const Modals = {
    ============================================================================ */
 const Actions = {
   deleteDoc(id){
+    if(!Auth.canDoc('delete')){ Utils.toast('คุณไม่มีสิทธิ์ลบเอกสาร (ติดต่อ Admin เพื่อขอสิทธิ์ "ลบ")', 'err'); return; }
     const d = Documents.find(id);
     if(!d) return;
     Utils.confirmDialog('ลบเอกสาร', `ต้องการลบเอกสาร ${d.docNumber} หรือไม่? การลบไม่สามารถย้อนกลับได้`, ()=>{
@@ -5228,6 +5381,7 @@ const Actions = {
     if(copy){ Render.documentsList(); Utils.toast('คัดลอกเอกสารเป็น '+copy.docNumber, 'ok'); }
   },
   convertDoc(id){
+    if(!Auth.canDoc('create')){ Utils.toast('คุณไม่มีสิทธิ์สร้างเอกสารใหม่ (แปลงเป็นใบแจ้งหนี้ต้องมีสิทธิ์ "เพิ่ม")', 'err'); return; }
     const d = Documents.find(id);
     if(!d) return;
     Utils.confirmDialog('Convert to Invoice', `แปลง ${d.docNumber} เป็นใบแจ้งหนี้ใหม่หรือไม่? เอกสารใบเสนอราคาเดิมจะยังคงอยู่`, ()=>{
@@ -5287,6 +5441,7 @@ const Actions = {
   },
 
   bulkDeleteDocs(){
+    if(!Auth.canDoc('delete')){ Utils.toast('คุณไม่มีสิทธิ์ลบเอกสาร (ติดต่อ Admin เพื่อขอสิทธิ์ "ลบ")', 'err'); return; }
     const ids = Array.from(UI.docsSelected);
     if(!ids.length) return;
     Utils.confirmDialog('ลบเอกสารที่เลือก', `ต้องการลบเอกสารทั้งหมด ${ids.length} รายการหรือไม่? การลบไม่สามารถย้อนกลับได้`, ()=>{
@@ -5417,20 +5572,147 @@ const Actions = {
    *  otherwise mean "no views at all", which is never actually intended here (an
    *  admin who wants to restrict a role still wants it to land somewhere, and
    *  'dashboard' is force-included by Auth.allowedViews() regardless). */
+  /** Saves BOTH permission tables (menu access + document actions) together, logs a
+   *  structured before/after audit entry, and stamps who/when for the "แก้ไขล่าสุดโดย"
+   *  hint. Reads checkboxes by merging onto the CURRENT effective state rather than
+   *  starting from empty — this matters because #role-perm-search can hide rows (so
+   *  their checkboxes aren't in the DOM at save time); starting from empty would
+   *  silently wipe out any hidden/unfiltered row's setting. */
   saveRolePermissions(){
-    const next = {};
+    const beforeMenu = JSON.parse(JSON.stringify((DB.settings && DB.settings.rolePermissions) || {}));
+    const beforeActions = JSON.parse(JSON.stringify((DB.settings && DB.settings.docActionPermissions) || {}));
+
+    const nextMenu = {};
     CONFIGURABLE_ROLES.forEach(role=>{
-      const checks = document.querySelectorAll(`.role-perm-check[data-role="${role}"]`);
-      next[role] = Array.from(checks).filter(c=>c.checked).map(c=>c.dataset.view);
+      const baseline = new Set(Array.isArray(beforeMenu[role]) ? beforeMenu[role] : (DEFAULT_ROLE_VIEW_ACCESS[role] || []));
+      document.querySelectorAll(`.role-perm-check[data-role="${role}"]`).forEach(c=>{
+        if(c.checked) baseline.add(c.dataset.view); else baseline.delete(c.dataset.view);
+      });
+      nextMenu[role] = Array.from(baseline);
     });
-    DB.settings.rolePermissions = next;
+
+    const nextActions = {};
+    CONFIGURABLE_ROLES.forEach(role=>{
+      const baselineObj = Object.assign({}, DEFAULT_DOC_ACTION_PERMISSIONS[role] || {},
+        (beforeActions[role] && typeof beforeActions[role] === 'object') ? beforeActions[role] : {});
+      document.querySelectorAll(`.doc-action-perm-check[data-role="${role}"]`).forEach(c=>{
+        baselineObj[c.dataset.action] = c.checked;
+      });
+      nextActions[role] = baselineObj;
+    });
+
+    DB.settings.rolePermissions = nextMenu;
+    DB.settings.docActionPermissions = nextActions;
+    DB.settings.rolePermissionsMeta = {
+      updatedByName: Auth.displayName() || '-',
+      updatedByEmail: Auth.username() || '',
+      updatedAt: Date.now()
+    };
     Storage.save();
-    ActivityLog.log('แก้ไขสิทธิ์การเข้าถึงเมนู', 'Auth', { note: JSON.stringify(next) });
+    ActivityLog.log('แก้ไขสิทธิ์การใช้งาน (เมนู + การดำเนินการ)', 'Auth', {
+      before: { rolePermissions: beforeMenu, docActionPermissions: beforeActions },
+      after: { rolePermissions: nextMenu, docActionPermissions: nextActions }
+    });
     // Refresh the current admin's own sidebar too, in case they're testing this on
     // an account whose role happens to be one of the 3 configurable ones (shouldn't
     // normally be an admin, but harmless either way).
     Render.renderSidebarUser();
-    Utils.toast('บันทึกสิทธิ์การเข้าถึงเมนูสำเร็จ', 'ok');
+    Render.renderRolePermissionsTable();
+    Utils.toast('บันทึกสิทธิ์การใช้งานสำเร็จ', 'ok');
+  },
+
+  /** "คัดลอกสิทธิ์" — copies one role's full permission set (both the menu-access
+   *  checkboxes AND the document-action checkboxes currently rendered) onto another
+   *  role's checkboxes, IN THE FORM ONLY — nothing is persisted until
+   *  Actions.saveRolePermissions() runs, so an admin can review before committing. */
+  copyRolePermissions(){
+    const from = document.getElementById('role-perm-copy-from').value;
+    const to = document.getElementById('role-perm-copy-to').value;
+    if(from === to){ Utils.toast('เลือก Role ต้นทางและปลายทางให้ต่างกัน', 'err'); return; }
+    document.querySelectorAll(`.role-perm-check[data-role="${from}"]`).forEach(src=>{
+      const dst = document.querySelector(`.role-perm-check[data-role="${to}"][data-view="${src.dataset.view}"]`);
+      if(dst) dst.checked = src.checked;
+    });
+    document.querySelectorAll(`.doc-action-perm-check[data-role="${from}"]`).forEach(src=>{
+      const dst = document.querySelector(`.doc-action-perm-check[data-role="${to}"][data-action="${src.dataset.action}"]`);
+      if(dst) dst.checked = src.checked;
+    });
+    Utils.toast(`คัดลอกสิทธิ์จาก ${Auth.roleLabel(from)} → ${Auth.roleLabel(to)} แล้ว — อย่าลืมกด "บันทึกสิทธิ์ทั้งหมด"`, 'ok');
+  },
+
+  /** Export the CURRENT permissions matrices (both tables, all rows regardless of
+   *  the search filter) to a native Excel file — reuses the same SpreadsheetML
+   *  helper as every other export in the app (Utils.downloadRowsAsExcel). */
+  exportRolePermissionsExcel(){
+    const saved = (DB.settings && DB.settings.rolePermissions) || {};
+    const effective = (role)=> Array.isArray(saved[role]) ? saved[role] : (DEFAULT_ROLE_VIEW_ACCESS[role] || []);
+    const savedActions = (DB.settings && DB.settings.docActionPermissions) || {};
+    const effectiveAction = (role)=>{
+      const custom = savedActions[role];
+      return (custom && typeof custom === 'object') ? custom : (DEFAULT_DOC_ACTION_PERMISSIONS[role] || {});
+    };
+    const rows = [];
+    rows.push(['SECTION','1) เมนูที่มองเห็น (View)']);
+    rows.push(['เมนู', ...CONFIGURABLE_ROLES.map(r=>Auth.roleLabel(r))]);
+    CONFIGURABLE_VIEWS.forEach(v=>{
+      rows.push([v.label, ...CONFIGURABLE_ROLES.map(r=> effective(r).includes(v.id) ? 'มีสิทธิ์' : '-')]);
+    });
+    rows.push([]);
+    rows.push(['SECTION','2) สิทธิ์การดำเนินการกับเอกสาร']);
+    rows.push(['สิทธิ์', ...CONFIGURABLE_ROLES.map(r=>Auth.roleLabel(r))]);
+    DOC_ACTIONS.forEach(a=>{
+      rows.push([a.label, ...CONFIGURABLE_ROLES.map(r=> effectiveAction(r)[a.id] ? 'มีสิทธิ์' : '-')]);
+    });
+    const meta = DB.settings && DB.settings.rolePermissionsMeta;
+    rows.push([]);
+    rows.push(['แก้ไขล่าสุดโดย', meta ? (meta.updatedByName||'-') : '-']);
+    rows.push(['เมื่อ', meta && meta.updatedAt ? Utils.formatDateThai(new Date(meta.updatedAt)) : '-']);
+
+    const stamp = Utils.formatDate(new Date(), 'YYYYMMDD-HHmm');
+    Utils.downloadRowsAsExcel(rows, `role-permissions-${stamp}.xls`, 'Role Permissions');
+    Utils.toast('Export สิทธิ์การใช้งานเป็น Excel สำเร็จ', 'ok');
+  },
+
+  /** Export the CURRENT permissions matrices as a print-ready PDF — reuses the same
+   *  #print-area + window.print() path as Reports.print() (see ExportMod). */
+  exportRolePermissionsPdf(){
+    const saved = (DB.settings && DB.settings.rolePermissions) || {};
+    const effective = (role)=> Array.isArray(saved[role]) ? saved[role] : (DEFAULT_ROLE_VIEW_ACCESS[role] || []);
+    const savedActions = (DB.settings && DB.settings.docActionPermissions) || {};
+    const effectiveAction = (role)=>{
+      const custom = savedActions[role];
+      return (custom && typeof custom === 'object') ? custom : (DEFAULT_DOC_ACTION_PERMISSIONS[role] || {});
+    };
+    const company = DB.company || {};
+    const meta = DB.settings && DB.settings.rolePermissionsMeta;
+    const roleHeaders = CONFIGURABLE_ROLES.map(r=>`<th>${Utils.escapeHtml(Auth.roleLabel(r))}</th>`).join('');
+    const menuRows = CONFIGURABLE_VIEWS.map(v=>
+      `<tr><td>${Utils.escapeHtml(v.label)}</td>${CONFIGURABLE_ROLES.map(r=>`<td class="text-right">${effective(r).includes(v.id) ? '✓' : '-'}</td>`).join('')}</tr>`
+    ).join('');
+    const actionRows = DOC_ACTIONS.map(a=>
+      `<tr><td>${Utils.escapeHtml(a.label)}</td>${CONFIGURABLE_ROLES.map(r=>`<td class="text-right">${effectiveAction(r)[a.id] ? '✓' : '-'}</td>`).join('')}</tr>`
+    ).join('');
+    const html = `
+      <div class="report-print-page">
+        <div class="report-print-header">
+          <b>${Utils.escapeHtml(company.name || '')}</b>
+          <div>${Utils.nl2br(company.address||'')}</div>
+        </div>
+        <div class="report-print-title">รายงานสิทธิ์การใช้งานตาม Role</div>
+        <div class="report-print-meta">พิมพ์เมื่อ ${Utils.formatDateThai(Utils.todayISO())}${meta ? ' — แก้ไขล่าสุดโดย '+Utils.escapeHtml(meta.updatedByName||'-') : ''}</div>
+        <div style="margin:10px 0 4px; font-weight:600;">1) เมนูที่มองเห็น (View)</div>
+        <table class="report-print-table">
+          <thead><tr><th>เมนู</th>${roleHeaders}</tr></thead>
+          <tbody>${menuRows}</tbody>
+        </table>
+        <div style="margin:16px 0 4px; font-weight:600;">2) สิทธิ์การดำเนินการกับเอกสาร</div>
+        <table class="report-print-table">
+          <thead><tr><th>สิทธิ์</th>${roleHeaders}</tr></thead>
+          <tbody>${actionRows}</tbody>
+        </table>
+      </div>`;
+    document.getElementById('print-area').innerHTML = html;
+    window.print();
   },
 
   /** Opens the Activity Log detail modal for one entry — looked up from
@@ -6570,8 +6852,8 @@ const AuthUI = {
   },
 
   showConfigPanel(){
-    document.getElementById('auth-config-url').value = DB.settings.supabaseUrl || '';
-    document.getElementById('auth-config-key').value = DB.settings.supabaseKey || '';
+    document.getElementById('auth-config-url').value = DB.settings.supabaseUrl || DEFAULT_SUPABASE_URL || '';
+    document.getElementById('auth-config-key').value = DB.settings.supabaseKey || DEFAULT_SUPABASE_KEY || '';
     AuthUI.setError('auth-config-error', '');
     AuthUI.setError('auth-config-ok', '');
     AuthUI.showPanel('config');
@@ -6778,13 +7060,11 @@ function wireEvents(){
   // ---- Editor: action buttons ----
   document.getElementById('btn-save-doc').addEventListener('click', Editor.save);
   document.getElementById('btn-print-doc').addEventListener('click', ExportMod.print);
-  document.getElementById('btn-export-xls-doc').addEventListener('click', ExportMod.exportDocExcel);
-  document.getElementById('btn-export-csv-doc').addEventListener('click', ExportMod.exportDocCSV);
-  document.getElementById('btn-convert-doc').addEventListener('click', ()=>{
-    if(!UI.editingDocId){ Utils.toast('กรุณาบันทึกใบเสนอราคาก่อน Convert', 'err'); return; }
-    if(UI.editingDraft.type !== 'QT'){ Utils.toast('แปลงได้เฉพาะใบเสนอราคาเท่านั้น', 'err'); return; }
-    Actions.convertDoc(UI.editingDocId);
-  });
+  // "Convert to Invoice" / "Export Excel (.xls)" / "Export CSV" buttons were removed
+  // from the Editor toolbar per request (kept only บันทึก + Print/Export PDF, moved
+  // under the approval-workflow card) — that functionality is still reachable from the
+  // Documents list row buttons (Actions.convertDoc / ExportMod.exportExcelById /
+  // ExportMod.exportCSVById), so nothing is actually lost, just no longer duplicated here.
 
   // ---- Documents list filters ----
   document.getElementById('doc-search').addEventListener('input', Render.documentsList);
@@ -6895,6 +7175,10 @@ function wireEvents(){
   // ---- Admin > Users ----
   document.getElementById('btn-refresh-admin-users').addEventListener('click', Render.adminUsersView);
   document.getElementById('btn-save-role-permissions').addEventListener('click', Actions.saveRolePermissions);
+  document.getElementById('role-perm-search').addEventListener('input', Render.renderRolePermissionsTable);
+  document.getElementById('btn-role-perm-copy').addEventListener('click', Actions.copyRolePermissions);
+  document.getElementById('btn-role-perm-export-excel').addEventListener('click', Actions.exportRolePermissionsExcel);
+  document.getElementById('btn-role-perm-export-pdf').addEventListener('click', Actions.exportRolePermissionsPdf);
 
   // ---- Admin > Users: reset-password helper modal ----
   document.getElementById('reset-pw-new-password').addEventListener('input', Modals._updateResetPasswordSql);

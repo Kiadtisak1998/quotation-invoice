@@ -574,11 +574,13 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
       <button class="btn" id="btn-auth-pending-logout">ออกจากระบบ</button>
     </div>
 
-    <!-- Reachable even when nobody is logged in yet — otherwise a cleared browser
-         profile / new device with no Supabase URL+Key saved locally would have no
-         way to get back in, since login itself requires Cloud Sync to be configured
-         (chicken-and-egg lockout). Saves straight to DB.settings + localStorage,
-         same fields Settings > Cloud Sync uses once logged in. -->
+    <!-- No longer linked from the visible login screen (removed at the user's request
+         — a clean login page mattered more than the visible recovery link). The panel
+         itself is left in place as a console-only fallback: if Supabase URL/Key ever
+         gets wiped from localStorage again (the chicken-and-egg lockout this was
+         originally built for — see Data.hydrateFromCloud/Storage history), it can
+         still be reached by running `AuthUI.showConfigPanel()` in the browser's
+         DevTools console while the login screen is showing. -->
     <div id="auth-config-panel" style="display:none;">
       <div class="field"><label>Supabase Project URL</label><input type="text" id="auth-config-url" placeholder="https://xxxxx.supabase.co"></div>
       <div class="field"><label>Supabase Anon Key</label><input type="text" id="auth-config-key" placeholder="eyJhbGciOi..."></div>
@@ -590,9 +592,6 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
       </div>
     </div>
 
-    <div id="auth-config-link-wrap" style="text-align:center;margin-top:14px;font-size:12px;">
-      <a href="#" id="link-show-auth-config">ตั้งค่าการเชื่อมต่อ Supabase</a>
-    </div>
   </div>
 </div>
 
@@ -1297,11 +1296,26 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
           </div>
           <div style="overflow-x:auto;">
             <table class="data-table" id="admin-users-table">
-              <thead><tr><th>ชื่อที่แสดง</th><th>Username</th><th>Role ปัจจุบัน</th><th>เปลี่ยน Role</th><th>สมัครเมื่อ</th></tr></thead>
+              <thead><tr><th>ชื่อที่แสดง</th><th>Username</th><th>Role ปัจจุบัน</th><th>เปลี่ยน Role</th><th>สมัครเมื่อ</th><th>จัดการ</th></tr></thead>
               <tbody></tbody>
             </table>
             <div class="empty-state" id="admin-users-empty" style="display:none;">ยังไม่มีผู้ใช้งาน หรือยังไม่ได้เชื่อมต่อ Supabase</div>
           </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">กำหนดสิทธิ์การเข้าถึงเมนู (ตาม Role)</div>
+          <div class="field-hint" style="margin-bottom:12px;">
+            เลือกได้ว่าแต่ละ Role เห็นเมนูอะไรบ้างในแถบด้านซ้าย — ตั้งค่านี้ซิงค์ผ่าน Supabase (ต้องเชื่อมต่อ Cloud Sync ไว้ที่ Settings ก่อน ถึงจะใช้ร่วมกันได้ทุกเครื่อง ไม่งั้นจะเก็บไว้ในเครื่องนี้เครื่องเดียว)
+            Role "Admin" เห็นทุกเมนูเสมอและปรับที่นี่ไม่ได้ — กันไม่ให้ Admin ล็อกตัวเองออกจากระบบโดยไม่ตั้งใจ
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="data-table" id="role-permissions-table">
+              <thead><tr></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <button class="btn btn-primary" id="btn-save-role-permissions" style="margin-top:14px;">💾 บันทึกสิทธิ์การเข้าถึง</button>
         </div>
       </section>
 
@@ -1568,6 +1582,40 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
   </div>
 </div>
 
+<!-- Reset-password helper (Admin > Users) — the app has no way to reset a Supabase
+     Auth password itself (that needs the Service Role Key, which this client-only
+     app deliberately never embeds — see the note at the top of the Admin page).
+     This just builds the exact SQL command an admin can paste into Supabase's SQL
+     Editor (Role: postgres) to set a new password for one user, and lets them copy
+     it with one click. -->
+<div class="modal-backdrop no-print" id="modal-reset-password">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-head"><h3>รีเซ็ตรหัสผ่าน</h3><button class="modal-close" data-close aria-label="ปิดหน้าต่าง">✕</button></div>
+    <div class="modal-body">
+      <p class="field-hint" id="reset-pw-user-label" style="margin-bottom:12px;"></p>
+      <div class="field">
+        <label>รหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="reset-pw-new-password" style="flex:1;" placeholder="พิมพ์รหัสผ่านใหม่ หรือกดสุ่ม">
+          <button type="button" class="btn btn-sm" id="btn-reset-pw-random">🎲 สุ่มรหัส</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>คำสั่ง SQL — วางใน Supabase SQL Editor (Role: postgres) แล้วกด Run</label>
+        <textarea id="reset-pw-sql" rows="4" readonly style="font-family:monospace;font-size:12px;"></textarea>
+      </div>
+      <div class="field-hint">
+        รันครั้งเดียวจะตั้งรหัสผ่านใหม่ให้ user นี้ทันที — จากนั้นแจ้งรหัสผ่านใหม่ให้ user โดยตรงเอง
+        (แอปนี้ส่งอีเมลแจ้งอัตโนมัติไม่ได้ เพราะ Username ผูกกับอีเมลจำลอง ไม่ใช่อีเมลจริง)
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close>ปิด</button>
+      <button class="btn btn-primary" id="btn-reset-pw-copy">📋 คัดลอกคำสั่ง SQL</button>
+    </div>
+  </div>
+</div>
+
 <!-- Supabase JS SDK (loaded from CDN; window.supabase is undefined if this fails to load,
      e.g. offline — the Cloud module below degrades gracefully to localStorage-only in that case) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1640,6 +1688,7 @@ const UI = {
   rejectTargetId: null,    // Pending Approvals queue: doc id currently open in the reject-reason modal
   _activityLogsCache: [],    // Activity Logs page: full (unfiltered, role-scoped) list from the last render
   _activityLogsFiltered: [], // Activity Logs page: what's currently visible after search/filter — what Export Excel exports
+  _adminProfilesCache: [],   // Admin > Users page: last-fetched profile list, so Modals.openResetPassword(id) can look one up without re-fetching
 };
 
 /* ============================================================================
@@ -2131,6 +2180,25 @@ const Auth = {
   canApproveAuth(){ return Auth.isAdmin() || Auth.role() === 'authorized'; },
   /** Step 3 (บัญชีอนุมัติ + วางบิล) approval button */
   canApproveAcct(){ return Auth.isAdmin() || Auth.role() === 'accounting'; },
+
+  /** Effective list of sidebar views the CURRENT user's role can reach — merges the
+   *  Admin-configurable override (DB.settings.rolePermissions, set from Admin > Users
+   *  > "กำหนดสิทธิ์การเข้าถึงเมนู", synced to Supabase via the existing
+   *  company_settings table) with DEFAULT_ROLE_VIEW_ACCESS as the fallback for any
+   *  role that hasn't been customized yet (so behavior is unchanged until an admin
+   *  actually edits something). 'dashboard' is force-included for every role — it's
+   *  the safe landing page Render.showView() redirects denied access to, so leaving
+   *  it out could create a redirect loop. 'admin' always gets the fixed full list
+   *  rather than the configurable one, so this feature itself can never lock an
+   *  admin out of their own Settings/Admin pages. */
+  allowedViews(){
+    const role = Auth.role();
+    if(!role) return ['dashboard'];
+    if(role === 'admin') return DEFAULT_ROLE_VIEW_ACCESS.admin;
+    const custom = DB.settings && DB.settings.rolePermissions && DB.settings.rolePermissions[role];
+    const base = Array.isArray(custom) ? custom : (DEFAULT_ROLE_VIEW_ACCESS[role] || []);
+    return Array.from(new Set(['dashboard', ...base]));
+  },
   displayName(){
     return (Auth.profile && Auth.profile.display_name)
       || (Auth.profile && Auth.profile.username)
@@ -2639,6 +2707,12 @@ const Data = {
         vatDefault: 7, whtDefault: 3, mgmtFeeDefault: 10, creditDefault: 30,
         termsDefault: 'เต็มจำนวน', runningFormat: '{PREFIX}{YYYYMM}-{SEQ3}',
         bahtTextSource: 'grand', theme: 'light', currency: 'THB',
+        // Admin-configurable override of which sidebar views accounting/authorized/
+        // preparer can reach (see Auth.allowedViews, DEFAULT_ROLE_VIEW_ACCESS,
+        // CONFIGURABLE_VIEWS, and the "กำหนดสิทธิ์การเข้าถึงเมนู" card on the Admin
+        // page). Empty object = every role still uses the DEFAULT_ROLE_VIEW_ACCESS
+        // fallback, i.e. unchanged behavior until an admin actually customizes something.
+        rolePermissions: {},
         // Cloud Sync (Supabase) — see the Cloud module. Blank = disabled, falls back to
         // localStorage only (spec requirement: local storage stays the safety-net backend).
         supabaseUrl: '', supabaseKey: ''
@@ -3250,12 +3324,41 @@ const DOC_LIST_TYPE_ALIASES = { quotations: 'QT', invoices: 'INV' };
 // history (spec requirement), it's just that Render.activityLogsView() itself further
 // restricts WHICH rows a non-admin sees (their own actions only) once the page loads,
 // same "view is reachable but data is filtered" split used elsewhere (e.g. Reports).
-const ROLE_VIEW_ACCESS = {
+//
+// This is now the FALLBACK/DEFAULT only — the actual effective access per role is
+// computed by Auth.allowedViews() below, which lets an Admin override
+// accounting/authorized/preparer's menu access from Admin > Users > "กำหนดสิทธิ์การ
+// เข้าถึงเมนู" (stored in DB.settings.rolePermissions, synced via the existing
+// company_settings Supabase table — see Cloud.pushCompanySettings). 'admin' is
+// deliberately NOT configurable through that UI (always gets every view here) so an
+// admin can never accidentally lock themselves out of their own Settings/Admin pages.
+const DEFAULT_ROLE_VIEW_ACCESS = {
   admin:      ['dashboard','editor','documents','quotations','invoices','customers','products','banks','reports','approvals','activity-logs','settings'],
   accounting: ['dashboard','editor','documents','quotations','invoices','customers','products','banks','reports','approvals','activity-logs','settings'],
   authorized: ['dashboard','reports','approvals','activity-logs'],
   preparer:   ['dashboard','editor','documents','quotations','invoices','customers','products','reports','activity-logs']
 };
+
+// The full catalog of sidebar items an Admin can toggle per role on the Admin page.
+// Deliberately excludes 'dashboard' (every role always keeps it — it's the safe
+// landing page a denied-access redirect falls back to, so removing it could create
+// a redirect loop) and 'admin-users' (separately gated by Auth.isAdmin() only,
+// never by role string — see the comment above showView()'s admin-users check).
+const CONFIGURABLE_VIEWS = [
+  { id:'editor',        label:'New Document (สร้างเอกสารใหม่)' },
+  { id:'documents',     label:'Documents (รายการเอกสารรวม)' },
+  { id:'quotations',    label:'ใบเสนอราคาทั้งหมด' },
+  { id:'invoices',      label:'ใบแจ้งหนี้ทั้งหมด' },
+  { id:'customers',     label:'Customers' },
+  { id:'products',      label:'Products/Services' },
+  { id:'banks',         label:'Bank Accounts' },
+  { id:'reports',       label:'Reports' },
+  { id:'approvals',     label:'รายการรออนุมัติ' },
+  { id:'activity-logs', label:'ประวัติการใช้งาน' },
+  { id:'settings',      label:'Settings' }
+];
+// Only these 3 roles are configurable — 'admin' always gets everything (see above).
+const CONFIGURABLE_ROLES = ['accounting','authorized','preparer'];
 
 const Render = {
 
@@ -3268,10 +3371,10 @@ const Render = {
         Utils.toast('หน้านี้สำหรับผู้ดูแลระบบ (Admin) เท่านั้น', 'err');
         viewName = 'dashboard';
       }
-    // Every other view is gated by ROLE_VIEW_ACCESS — blocks reaching a view that
+    // Every other view is gated by Auth.allowedViews() — blocks reaching a view that
     // role's sidebar doesn't even show (URL hash, browser back/forward), not just
     // hiding the nav button.
-    }else if(!(ROLE_VIEW_ACCESS[Auth.role()] || ['dashboard']).includes(viewName)){
+    }else if(!Auth.allowedViews().includes(viewName)){
       Utils.toast('คุณไม่มีสิทธิ์เข้าหน้านี้', 'err');
       viewName = 'dashboard';
     }
@@ -3317,15 +3420,15 @@ const Render = {
     if(viewName === 'banks') Render.banksList();
     if(viewName === 'reports') Reports.init();
     if(viewName === 'approvals') Render.approvalsView();
-    if(viewName === 'admin-users') Render.adminUsersView();
+    if(viewName === 'admin-users'){ Render.adminUsersView(); Render.renderRolePermissionsTable(); }
     if(viewName === 'activity-logs') Render.activityLogsView();
     if(viewName === 'settings') Render.settingsForm();
     Render.updateApprovalsBadge();
   },
 
   /** Updates the sidebar's user card (name/role) + shows/hides every nav item
-   *  according to ROLE_VIEW_ACCESS (admin-users is the one exception, gated by
-   *  Auth.isAdmin() directly — see the comment on ROLE_VIEW_ACCESS above).
+   *  according to Auth.allowedViews() (admin-users is the one exception, gated by
+   *  Auth.isAdmin() directly — see the comment on DEFAULT_ROLE_VIEW_ACCESS above).
    *  Called right after login/logout/signup and once at boot. */
   renderSidebarUser(){
     const nameEl = document.getElementById('sidebar-user-name');
@@ -3336,7 +3439,7 @@ const Render = {
     roleEl.textContent = Auth.role() ? Auth.roleLabel(Auth.role()) : '';
     if(adminNav) adminNav.style.display = Auth.isAdmin() ? '' : 'none';
 
-    const allowed = ROLE_VIEW_ACCESS[Auth.role()] || ['dashboard'];
+    const allowed = Auth.allowedViews();
     ['dashboard','editor','quotations','invoices','customers','products','banks','reports','approvals','activity-logs','settings'].forEach(view=>{
       const el = document.querySelector('#sidebar-nav .nav-item[data-view="'+view+'"]');
       if(el) el.style.display = allowed.includes(view) ? '' : 'none';
@@ -3537,6 +3640,10 @@ const Render = {
       return;
     }
     if(empty) empty.style.display = 'none';
+    // Cached so Modals.openResetPassword(id) can look a profile up by id without
+    // re-fetching — the reset-password modal only needs username/email, both
+    // already present in what listAllProfiles() just returned.
+    UI._adminProfilesCache = profiles;
     const roleOptions = ['pending','admin','accounting','authorized','preparer'];
     tbody.innerHTML = profiles.map(p=>`
       <tr data-user-id="${p.id}">
@@ -3550,12 +3657,35 @@ const Render = {
           <button class="btn btn-sm btn-primary" onclick="Actions.saveUserRole('${p.id}')">บันทึก</button>
         </td>
         <td>${p.created_at ? Utils.formatDateThai(p.created_at.slice(0,10)) : '-'}</td>
+        <td><button class="btn btn-sm" onclick="Modals.openResetPassword('${p.id}')">🔑 รีเซ็ตรหัสผ่าน</button></td>
       </tr>
     `).join('');
   },
 
+  /** Admin > Users > "กำหนดสิทธิ์การเข้าถึงเมนู" — a checkbox matrix (rows =
+   *  CONFIGURABLE_VIEWS, columns = CONFIGURABLE_ROLES) reflecting the CURRENT
+   *  effective access (DB.settings.rolePermissions[role] if it's been customized,
+   *  else the DEFAULT_ROLE_VIEW_ACCESS fallback) — so the checkboxes always show
+   *  real values, not just whatever's been explicitly saved before. 'admin' isn't a
+   *  column here at all (see CONFIGURABLE_ROLES) since it always gets full access. */
+  renderRolePermissionsTable(){
+    const table = document.getElementById('role-permissions-table');
+    if(!table) return;
+    const saved = (DB.settings && DB.settings.rolePermissions) || {};
+    const effective = (role)=> Array.isArray(saved[role]) ? saved[role] : (DEFAULT_ROLE_VIEW_ACCESS[role] || []);
+
+    table.querySelector('thead').innerHTML = `<tr><th>เมนู</th>${CONFIGURABLE_ROLES.map(r=>`<th>${Utils.escapeHtml(Auth.roleLabel(r))}</th>`).join('')}</tr>`;
+    table.querySelector('tbody').innerHTML = CONFIGURABLE_VIEWS.map(v=>{
+      const cells = CONFIGURABLE_ROLES.map(role=>{
+        const checked = effective(role).includes(v.id) ? 'checked' : '';
+        return `<td style="text-align:center;"><input type="checkbox" class="role-perm-check" data-role="${role}" data-view="${v.id}" ${checked}></td>`;
+      }).join('');
+      return `<tr><td>${Utils.escapeHtml(v.label)}</td>${cells}</tr>`;
+    }).join('');
+  },
+
   /** Activity Logs page (sidebar "ประวัติการใช้งาน"). Reachable by every role (see
-   *  ROLE_VIEW_ACCESS) — but WHICH rows show up differs: admins see everything,
+   *  Auth.allowedViews) — but WHICH rows show up differs: admins see everything,
    *  everyone else sees only entries where they were the actor. When Cloud Sync is
    *  on, Supabase (RLS-enforced — see supabase-schema.sql section 8) is the source
    *  of truth for full history; DB.activityLogs is a capped local-only fallback
@@ -4803,6 +4933,68 @@ const Modals = {
   close(id){ document.getElementById(id).classList.remove('open'); },
   closeAll(){ document.querySelectorAll('.modal-backdrop').forEach(m=>m.classList.remove('open')); },
 
+  /* ---------------------------- ADMIN: RESET-PASSWORD HELPER ---------------------------- */
+  /** Opens the reset-password modal for one user (looked up from
+   *  UI._adminProfilesCache, populated by the last Render.adminUsersView() call).
+   *  Pre-fills a random password and builds the matching SQL command immediately,
+   *  so there's always something valid to copy even if the admin doesn't touch
+   *  the password field. */
+  openResetPassword(userId){
+    const p = (UI._adminProfilesCache || []).find(x=> x.id === userId);
+    if(!p){ Utils.toast('ไม่พบผู้ใช้งานนี้ — ลองรีเฟรชรายชื่อแล้วลองใหม่', 'err'); return; }
+    Modals._resetPasswordUser = p;
+    document.getElementById('reset-pw-user-label').textContent =
+      `ตั้งรหัสผ่านใหม่ให้ผู้ใช้: ${p.display_name || p.username} (username: ${p.username || '-'})`;
+    document.getElementById('reset-pw-new-password').value = Modals.randomPassword();
+    Modals._updateResetPasswordSql();
+    Modals.open('modal-reset-password');
+  },
+
+  /** Simple random password generator — mixes upper/lower/digits, long enough to
+   *  be reasonable as a temporary password the admin hands off and the user
+   *  changes later (this app has no self-service "change my password" flow yet,
+   *  so in practice this new password IS what the user keeps using). */
+  randomPassword(){
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    let out = '';
+    for(let i=0;i<10;i++) out += chars[Math.floor(Math.random()*chars.length)];
+    return out;
+  },
+
+  /** Rebuilds the SQL textarea from the current password field + the user this
+   *  modal is open for. Uses the exact auth.users / extensions.crypt+gen_salt
+   *  pattern already established for manual password resets earlier in this
+   *  project (see supabase-schema.sql section 5 and Auth._usernameToEmail). */
+  _updateResetPasswordSql(){
+    const p = Modals._resetPasswordUser;
+    const sqlEl = document.getElementById('reset-pw-sql');
+    if(!p || !sqlEl) return;
+    const pwd = document.getElementById('reset-pw-new-password').value || '';
+    const email = p.email || ((p.username||'').trim().toLowerCase() + '@' + USERNAME_EMAIL_DOMAIN);
+    // Escape single quotes defensively — Postgres string literals use '' to escape
+    // a literal quote — in case the password or email ever contains one.
+    const esc = (s)=> String(s).replace(/'/g, "''");
+    sqlEl.value = `UPDATE auth.users\nSET encrypted_password = extensions.crypt('${esc(pwd)}', extensions.gen_salt('bf'))\nWHERE email = '${esc(email)}';`;
+  },
+
+  /** Copies the generated SQL to the clipboard — falls back to the older
+   *  execCommand approach if navigator.clipboard isn't available (very old
+   *  browsers, or non-HTTPS contexts where the Clipboard API is disabled). */
+  copyResetPasswordSql(){
+    const sqlEl = document.getElementById('reset-pw-sql');
+    if(!sqlEl || !sqlEl.value){ Utils.toast('ไม่มีคำสั่ง SQL ให้คัดลอก', 'err'); return; }
+    const done = ()=> Utils.toast('คัดลอกคำสั่ง SQL แล้ว — ไปวางใน Supabase SQL Editor ได้เลย', 'ok');
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(sqlEl.value).then(done).catch(()=>{
+        sqlEl.select();
+        try{ document.execCommand('copy'); done(); }catch(err){ Utils.toast('คัดลอกไม่สำเร็จ — เลือกข้อความในกล่องแล้วกด Ctrl+C เอง', 'err'); }
+      });
+    }else{
+      sqlEl.select();
+      try{ document.execCommand('copy'); done(); }catch(err){ Utils.toast('คัดลอกไม่สำเร็จ — เลือกข้อความในกล่องแล้วกด Ctrl+C เอง', 'err'); }
+    }
+  },
+
   openCustomerPicker(){
     Modals.renderCustomerPickerList('');
     document.getElementById('modal-customer-search').value = '';
@@ -5214,6 +5406,31 @@ const Actions = {
     }else{
       Utils.toast('อัปเดต Role ไม่สำเร็จ', 'err');
     }
+  },
+
+  /** Reads every checkbox in the role-permissions matrix and saves the result to
+   *  DB.settings.rolePermissions — synced to Supabase via the existing
+   *  company_settings push (Storage.save() -> Cloud.scheduleSync() ->
+   *  Cloud.pushAll() -> Cloud.pushCompanySettings(), same path DB.settings already
+   *  uses for everything else, no new Cloud plumbing needed). Only writes an entry
+   *  for a role if at least one of its checkboxes is checked — an empty array would
+   *  otherwise mean "no views at all", which is never actually intended here (an
+   *  admin who wants to restrict a role still wants it to land somewhere, and
+   *  'dashboard' is force-included by Auth.allowedViews() regardless). */
+  saveRolePermissions(){
+    const next = {};
+    CONFIGURABLE_ROLES.forEach(role=>{
+      const checks = document.querySelectorAll(`.role-perm-check[data-role="${role}"]`);
+      next[role] = Array.from(checks).filter(c=>c.checked).map(c=>c.dataset.view);
+    });
+    DB.settings.rolePermissions = next;
+    Storage.save();
+    ActivityLog.log('แก้ไขสิทธิ์การเข้าถึงเมนู', 'Auth', { note: JSON.stringify(next) });
+    // Refresh the current admin's own sidebar too, in case they're testing this on
+    // an account whose role happens to be one of the 3 configurable ones (shouldn't
+    // normally be an admin, but harmless either way).
+    Render.renderSidebarUser();
+    Utils.toast('บันทึกสิทธิ์การเข้าถึงเมนูสำเร็จ', 'ok');
   },
 
   /** Opens the Activity Log detail modal for one entry — looked up from
@@ -6350,9 +6567,6 @@ const AuthUI = {
     document.getElementById('auth-signup-form').style.display = which==='signup' ? '' : 'none';
     document.getElementById('auth-pending-panel').style.display = which==='pending' ? '' : 'none';
     document.getElementById('auth-config-panel').style.display = which==='config' ? '' : 'none';
-    // The "ตั้งค่าการเชื่อมต่อ Supabase" link only makes sense on the login/signup
-    // screens (not while already inside the config panel or the pending-approval screen).
-    document.getElementById('auth-config-link-wrap').style.display = (which==='login' || which==='signup') ? '' : 'none';
   },
 
   showConfigPanel(){
@@ -6680,6 +6894,15 @@ function wireEvents(){
 
   // ---- Admin > Users ----
   document.getElementById('btn-refresh-admin-users').addEventListener('click', Render.adminUsersView);
+  document.getElementById('btn-save-role-permissions').addEventListener('click', Actions.saveRolePermissions);
+
+  // ---- Admin > Users: reset-password helper modal ----
+  document.getElementById('reset-pw-new-password').addEventListener('input', Modals._updateResetPasswordSql);
+  document.getElementById('btn-reset-pw-random').addEventListener('click', ()=>{
+    document.getElementById('reset-pw-new-password').value = Modals.randomPassword();
+    Modals._updateResetPasswordSql();
+  });
+  document.getElementById('btn-reset-pw-copy').addEventListener('click', Modals.copyResetPasswordSql);
 
   // ---- Auth screen (login / sign-up / pending / Supabase config) ----
   document.getElementById('btn-auth-login').addEventListener('click', AuthUI.handleLogin);
@@ -6688,7 +6911,9 @@ function wireEvents(){
   document.getElementById('btn-auth-pending-logout').addEventListener('click', AuthUI.handleLogout);
   document.getElementById('link-show-signup').addEventListener('click', (e)=>{ e.preventDefault(); AuthUI.showPanel('signup'); });
   document.getElementById('link-show-login').addEventListener('click', (e)=>{ e.preventDefault(); AuthUI.showPanel('login'); });
-  document.getElementById('link-show-auth-config').addEventListener('click', (e)=>{ e.preventDefault(); AuthUI.showConfigPanel(); });
+  // 'link-show-auth-config' was removed from the login screen (see the comment above
+  // #auth-config-panel) — AuthUI.showConfigPanel() is still callable directly from the
+  // browser console as a fallback, it just has no clickable UI entry point anymore.
   document.getElementById('link-auth-config-back').addEventListener('click', (e)=>{ e.preventDefault(); AuthUI.showPanel('login'); });
   document.getElementById('btn-auth-config-save').addEventListener('click', AuthUI.saveConfigFromAuthScreen);
   // Enter submits the focused login/signup field instead of requiring a click

@@ -24,11 +24,11 @@
    0. RESET & BASE
    ========================================================================== */
 :root{
-  --navy:#14213d;
-  --navy-dark:#0a1226;
-  --navy-light:#22335c;
-  --blue-accent:#3b6fed;
-  --blue-accent-soft:#eef3ff;
+  --navy:#1c1a17;
+  --navy-dark:#0a0a0a;
+  --navy-light:#2e2b26;
+  --blue-accent:#a8823f;
+  --blue-accent-soft:#f7f1e6;
   --white:#ffffff;
   --gray-50:#fafafb;
   --gray-100:#f2f3f5;
@@ -46,6 +46,27 @@
   --shadow:0 1px 2px rgba(20,33,61,0.05), 0 1px 1px rgba(20,33,61,0.04);
   --shadow-md:0 4px 12px rgba(20,33,61,0.08), 0 1px 3px rgba(20,33,61,0.05);
   --shadow-lg:0 16px 40px rgba(20,33,61,0.16), 0 4px 12px rgba(20,33,61,0.08);
+  /* ---- "Creative" theme layer v2 — per user feedback that v1 (blue→violet, bold
+     gradients) wasn't to their taste. New direction requested: "โทนดำ สวยหรู ดูแพง"
+     (black, luxurious, expensive-looking) + "นุ่มนวล พาสเทล" (soft, pastel intensity)
+     — near-black surfaces with a muted brass-gold + dusty-rose accent pair, no
+     bright/saturated hues anywhere. --navy/--navy-dark/--navy-light and
+     --blue-accent/--blue-accent-soft KEEP their original names (they're read in
+     ~30+ places: sidebar, buttons, focus rings, links, badges) but now hold
+     black/gold values instead of navy-blue — renaming the variables themselves would
+     mean touching every one of those call sites and risk missing one; changing only
+     the values here cascades safely everywhere. --violet/--violet-soft (name kept
+     from v1) is now a muted dusty rose, used only as the gradient's second stop.
+     Still deliberately NOT used anywhere under .doc-page/.report-print-page/@media
+     print — the actual quotation/invoice document stays exactly as-is (see that
+     section's own comment: "modernizing the UI never touches document fidelity"). */
+  --violet:#c9a08c;
+  --violet-soft:#f5eae4;
+  --gradient-brand:linear-gradient(135deg,#a8823f 0%,#c9a08c 100%);
+  --gradient-navy:linear-gradient(160deg,#0a0a0a 0%,#1c1a17 55%,#26221d 100%);
+  --gradient-success:linear-gradient(135deg,#1f9d5c 0%,#4caf82 100%);
+  --gradient-danger:linear-gradient(135deg,#e0453f 0%,#d9776f 100%);
+  --gradient-auth:linear-gradient(135deg,#faf7f2 0%,#f5ede4 50%,#efe2d3 100%);
   /* App interface uses a clean modern Thai/Latin UI stack. The printable document
      (.doc-page) intentionally keeps its own separate TH Sarabun New font declaration
      below, since official Thai documents need that exact typeface — the two are
@@ -62,9 +83,11 @@
   --gray-500:#8d93ad;
   --gray-700:#c9cde0;
   --gray-900:#f3f4fa;
-  --navy:#3b6fed;
-  --navy-dark:#0a1226;
-  --blue-accent-soft:#1c2740;
+  --navy:#a8823f;
+  --navy-dark:#0a0a0a;
+  --blue-accent-soft:#2a2419;
+  --violet-soft:#2a201c;
+  --gradient-auth:linear-gradient(160deg,#0a0a0a 0%,#1c1a17 55%,#241d17 100%);
   --shadow:0 1px 2px rgba(0,0,0,0.25);
   --shadow-md:0 4px 14px rgba(0,0,0,0.32);
   --shadow-lg:0 20px 44px rgba(0,0,0,0.45);
@@ -96,7 +119,7 @@ select{
 select:focus{border-color:var(--blue-accent);box-shadow:0 0 0 3px var(--blue-accent-soft);}
 ::-webkit-scrollbar{width:10px;height:10px;}
 ::-webkit-scrollbar-thumb{background:var(--gray-300);border-radius:8px;border:2px solid transparent;background-clip:content-box;}
-::selection{background:rgba(59,111,237,0.22);}
+::selection{background:rgba(168,130,63,0.25);}
 
 /* Accessibility: visible keyboard-focus ring on every interactive element (mouse users
    never see this, since :focus-visible only fires for keyboard/programmatic focus) */
@@ -112,12 +135,21 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* Auth screen (login / sign-up / pending-approval) — shown INSTEAD of #app-shell
    until a logged-in user with an approved role is confirmed. See the Auth module. */
-#auth-screen{display:none;min-height:100vh;align-items:center;justify-content:center;background:var(--gray-100);padding:20px;}
-#auth-screen .card{max-width:420px;width:100%;}
+#auth-screen{display:none;min-height:100vh;align-items:center;justify-content:center;background:var(--gradient-auth);padding:20px;position:relative;overflow:hidden;}
+/* Two soft blurred color "blobs" behind the login card — purely decorative, the
+   card itself (below) stays exactly as clean/minimal as before; a prior request
+   specifically asked for a plain, uncluttered login FORM, so all the creative
+   flair here lives in the backdrop, never inside .card. */
+#auth-screen::before,#auth-screen::after{
+  content:'';position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;z-index:0;pointer-events:none;
+}
+#auth-screen::before{width:340px;height:340px;background:var(--blue-accent);top:-90px;left:-90px;}
+#auth-screen::after{width:300px;height:300px;background:var(--violet);bottom:-90px;right:-70px;}
+#auth-screen .card{max-width:420px;width:100%;position:relative;z-index:1;}
 .auth-role-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;background:var(--blue-accent-soft);color:var(--blue-accent);margin-left:6px;}
 
 #sidebar{
-  width:238px;flex-shrink:0;background:var(--navy-dark);color:#dbe4f5;
+  width:238px;flex-shrink:0;background:var(--gradient-navy);color:#dbe4f5;
   display:flex;flex-direction:column;position:sticky;top:0;height:100vh;
   z-index:50;transition:transform .2s ease;
 }
@@ -125,9 +157,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   display:flex;align-items:center;gap:10px;padding:20px 18px 16px;
 }
 #sidebar .brand .logo-badge{
-  width:32px;height:32px;border-radius:9px;background:var(--blue-accent);
+  width:32px;height:32px;border-radius:9px;background:var(--gradient-brand);
   display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13.5px;
-  box-shadow:0 2px 8px rgba(59,111,237,0.45);flex-shrink:0;overflow:hidden;
+  box-shadow:0 2px 8px rgba(168,130,63,0.45);flex-shrink:0;overflow:hidden;
 }
 #sidebar .brand .logo-badge.has-logo{background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.25);}
 #sidebar .brand .logo-badge img{width:100%;height:100%;object-fit:contain;padding:3px;}
@@ -141,7 +173,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   transition:background .12s ease,color .12s ease;
 }
 #sidebar .nav-item:hover{background:rgba(255,255,255,0.055);color:#f0f2f8;}
-#sidebar .nav-item.active{background:var(--blue-accent);color:#fff;font-weight:600;box-shadow:0 2px 10px rgba(59,111,237,0.35);}
+#sidebar .nav-item.active{background:var(--gradient-brand);color:#fff;font-weight:600;box-shadow:0 2px 10px rgba(168,130,63,0.4);}
 #sidebar .nav-item .ic{width:18px;text-align:center;font-size:14.5px;opacity:.9;}
 .nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:10.5px;font-weight:700;line-height:1;padding:3px 7px;border-radius:20px;min-width:18px;text-align:center;}
 #sidebar .nav-foot{padding:14px 20px 18px;font-size:10.5px;color:#5c6485;border-top:1px solid rgba(255,255,255,0.06);margin-top:4px;}
@@ -208,13 +240,13 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 }
 .btn:hover{background:var(--gray-100);color:var(--gray-900);border-color:var(--gray-400);transform:translateY(-1px);box-shadow:0 3px 8px rgba(20,33,61,0.1);}
 .btn:active{transform:translateY(1px);box-shadow:none;}
-.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff;box-shadow:0 3px 10px rgba(20,33,61,0.35);}
-.btn-primary:hover{background:var(--navy-light);border-color:var(--navy-light);box-shadow:0 5px 14px rgba(20,33,61,0.4);}
-.btn-accent{background:var(--blue-accent);border-color:var(--blue-accent);color:#fff;box-shadow:0 3px 10px rgba(59,111,237,0.4);}
-.btn-accent:hover{opacity:.92;box-shadow:0 5px 14px rgba(59,111,237,0.5);}
-.btn-danger{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 3px 10px rgba(224,69,63,0.35);}
+.btn-primary{background:linear-gradient(135deg,var(--navy),var(--navy-light));border-color:var(--navy);color:#fff;box-shadow:0 3px 10px rgba(20,33,61,0.35);}
+.btn-primary:hover{background:linear-gradient(135deg,var(--navy-light),var(--navy));border-color:var(--navy-light);box-shadow:0 5px 14px rgba(20,33,61,0.4);}
+.btn-accent{background:var(--gradient-brand);border-color:transparent;color:#fff;box-shadow:0 3px 10px rgba(168,130,63,0.4);}
+.btn-accent:hover{opacity:.92;box-shadow:0 5px 14px rgba(168,130,63,0.5);}
+.btn-danger{background:var(--gradient-danger);border-color:transparent;color:#fff;box-shadow:0 3px 10px rgba(224,69,63,0.35);}
 .btn-danger:hover{opacity:.9;box-shadow:0 5px 14px rgba(224,69,63,0.45);}
-.btn-success{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 3px 10px rgba(31,157,92,0.35);}
+.btn-success{background:var(--gradient-success);border-color:transparent;color:#fff;box-shadow:0 3px 10px rgba(31,157,92,0.35);}
 .btn-success:hover{opacity:.9;box-shadow:0 5px 14px rgba(31,157,92,0.45);}
 .btn-primary,.btn-accent,.btn-danger,.btn-success{font-weight:700;}
 .btn-sm{padding:6px 13px;font-size:12.5px;border-radius:7px;}
@@ -294,11 +326,18 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
 /* Dashboard */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
 @media (max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
-.kpi-card{background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);transition:box-shadow .15s,transform .15s;}
+.kpi-card{background:var(--white);border:1px solid var(--gray-200);border-left:4px solid var(--gray-200);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);transition:box-shadow .15s,transform .15s;}
 .kpi-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px);}
 .kpi-card .kpi-label{font-size:11.5px;color:var(--gray-500);font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
 .kpi-card .kpi-value{font-size:26px;font-weight:800;color:var(--gray-900);margin-top:6px;letter-spacing:-.02em;}
 .kpi-card .kpi-sub{font-size:11.5px;color:var(--gray-500);margin-top:3px;}
+/* Colored left-border + soft corner wash on the 3 accent variants only — plain
+   (no-accent) KPI cards keep the neutral gray border above, since color should
+   still mean something (green=good/paid, red=owed, amber=late) rather than being
+   decoration for its own sake. */
+.kpi-card.accent-red{border-left-color:var(--red);background:linear-gradient(135deg,rgba(224,69,63,0.07),var(--white) 45%);}
+.kpi-card.accent-green{border-left-color:var(--green);background:linear-gradient(135deg,rgba(31,157,92,0.07),var(--white) 45%);}
+.kpi-card.accent-amber{border-left-color:var(--amber);background:linear-gradient(135deg,rgba(217,140,31,0.07),var(--white) 45%);}
 .kpi-card.accent-red .kpi-value{color:var(--red);}
 .kpi-card.accent-green .kpi-value{color:var(--green);}
 .kpi-card.accent-amber .kpi-value{color:var(--amber);}
@@ -354,7 +393,7 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
 .wf-step.done:not(:last-child)::before{background:var(--green);}
 .wf-dot{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;background:var(--gray-100);color:var(--gray-500);border:2px solid var(--gray-200);z-index:1;}
 .wf-step.done .wf-dot{background:var(--green);border-color:var(--green);color:#fff;}
-.wf-step.current .wf-dot{background:var(--blue-accent);border-color:var(--blue-accent);color:#fff;box-shadow:0 0 0 4px var(--blue-accent-soft);}
+.wf-step.current .wf-dot{background:var(--gradient-brand);border-color:transparent;color:#fff;box-shadow:0 0 0 4px var(--blue-accent-soft);}
 .wf-step.locked .wf-dot{opacity:.5;}
 .wf-body{flex:1;padding-top:3px;}
 .wf-title{font-weight:700;font-size:13.5px;color:var(--gray-900);}
@@ -494,12 +533,15 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
   color:var(--gray-700);font-size:12.5px;font-weight:600;cursor:pointer;transition:all .12s;white-space:nowrap;
 }
 .report-tab:hover{background:var(--gray-100);}
-.report-tab.active{background:var(--navy);border-color:var(--navy);color:#fff;box-shadow:0 2px 8px rgba(20,33,61,0.25);}
+.report-tab.active{background:var(--gradient-brand);border-color:transparent;color:#fff;box-shadow:0 2px 8px rgba(168,130,63,0.3);}
 .report-panel{display:none;}
 .report-panel.active{display:block;animation:fadein .15s ease;}
 .report-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
 @media (max-width:900px){.report-kpi-grid{grid-template-columns:1fr 1fr;}}
-.report-kpi{background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:12px 14px;}
+.report-kpi{background:var(--gray-50);border:1px solid var(--gray-200);border-left:3px solid var(--gray-300);border-radius:var(--radius-sm);padding:12px 14px;}
+.report-kpi.accent-green{border-left-color:var(--green);}
+.report-kpi.accent-red{border-left-color:var(--red);}
+.report-kpi.accent-amber{border-left-color:var(--amber);}
 .report-kpi .rk-label{font-size:11px;color:var(--gray-500);font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
 .report-kpi .rk-value{font-size:20px;font-weight:800;color:var(--gray-900);margin-top:4px;letter-spacing:-.01em;}
 .report-kpi.accent-green .rk-value{color:var(--green);}
@@ -653,7 +695,7 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
     </div>
     <nav id="sidebar-nav">
       <div class="nav-item" data-view="dashboard" role="button" tabindex="0"><span class="ic" aria-hidden="true">▦</span> Dashboard</div>
-      <div class="nav-item" data-view="editor" role="button" tabindex="0"><span class="ic" aria-hidden="true">＋</span> New Document</div>
+      <div class="nav-item" data-view="editor" role="button" tabindex="0"><span class="ic" aria-hidden="true">➕</span> สร้างเอกสาร</div>
       <div class="nav-item" data-view="quotations" role="button" tabindex="0"><span class="ic" aria-hidden="true">📄</span> ใบเสนอราคาทั้งหมด</div>
       <div class="nav-item" data-view="invoices" role="button" tabindex="0"><span class="ic" aria-hidden="true">🧾</span> ใบแจ้งหนี้ทั้งหมด</div>
       <div class="nav-item" data-view="customers" role="button" tabindex="0"><span class="ic" aria-hidden="true">◎</span> Customers</div>
@@ -664,12 +706,6 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
       <div class="nav-item" data-view="admin-users" id="nav-admin-users" role="button" tabindex="0" style="display:none;"><span class="ic" aria-hidden="true">🛡</span> Admin</div>
       <div class="nav-item" data-view="activity-logs" role="button" tabindex="0"><span class="ic" aria-hidden="true">📜</span> ประวัติการใช้งาน</div>
       <div class="nav-item" data-view="settings" role="button" tabindex="0"><span class="ic" aria-hidden="true">⚙</span> Settings</div>
-      <!-- Not a real "view" — data-view="helpdesk" is special-cased in wireEvents() to open
-           #modal-helpdesk-notice instead of Render.showView(). Deliberately left OUT of
-           Auth.allowedViews()/DEFAULT_ROLE_VIEW_ACCESS's per-role hide/show loop (see
-           Render.renderSidebarUser) so it always stays visible to every role — help
-           shouldn't be something an Admin can accidentally restrict away. -->
-      <div class="nav-item" data-view="helpdesk" role="button" tabindex="0"><span class="ic" aria-hidden="true">💬</span> แจ้งปัญหา</div>
     </nav>
     <div class="nav-foot" id="sidebar-user-foot">
       <div id="sidebar-user-name" style="font-weight:700;color:#fff;font-size:12.5px;">-</div>
@@ -688,8 +724,11 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
         <div class="view-title" id="view-title-text">Dashboard</div>
       </div>
       <div class="topbar-actions">
-        <button class="btn btn-sm" id="btn-toggle-theme" title="สลับธีม">🌓 Theme</button>
-        <button class="btn btn-primary btn-sm" id="btn-quick-new">＋ เอกสารใหม่</button>
+        <button class="btn btn-sm" id="btn-user-guide" title="คู่มือการใช้งานระบบ">📖 คู่มือการใช้งาน</button>
+        <!-- Reuses the exact same #modal-helpdesk-notice as the (now-removed) sidebar
+             "แจ้งปัญหา" nav item — moved up here per user request to sit next to the
+             user guide button instead. -->
+        <button class="btn btn-sm" id="btn-report-issue" title="แจ้งปัญหาการใช้งานระบบ">💬 แจ้งปัญหา</button>
       </div>
     </div>
 
@@ -1753,6 +1792,28 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
       <a href="https://line.me/ti/g2/xEQdgC66ODDoZEYChfHEuA_Ed4VCuwWNIoZZJQ?utm_source=invitation&utm_medium=link_copy&utm_campaign=default"
          target="_blank" rel="noopener" class="btn btn-success btn-block" style="text-decoration:none;display:block;">💬 เข้ากลุ่ม LINE</a>
       <div class="field-hint" style="margin-top:14px;">หากเข้าสู่ระบบไม่ได้ หรือพบปัญหาการใช้งานระบบ สามารถแจ้งได้ที่กลุ่มนี้</div>
+    </div>
+  </div>
+</div>
+
+<!-- User Guide (คู่มือการใช้งาน) — placeholder shell per user request; real content ("ข้อมูล")
+     to be filled in later. Opened from the topbar "📖 คู่มือการใช้งาน" button (see wireEvents())
+     via the same generic Modals.open()/.modal-backdrop/[data-close] pattern as every other
+     modal — no extra wiring needed once real content replaces the placeholder below.
+     No footer close button by design (matches #modal-helpdesk-notice) — the ✕ and clicking
+     outside the modal already close it. -->
+<div class="modal-backdrop no-print" id="modal-user-guide">
+  <div class="modal">
+    <div class="modal-head"><h3>📖 คู่มือการใช้งานระบบ</h3><button class="modal-close" data-close aria-label="ปิดหน้าต่าง">✕</button></div>
+    <div class="modal-body">
+      <!-- TODO: swap this placeholder for the real guide content (text/steps/screenshots/
+           links) once it's ready — .modal already scrolls (max-height:88vh) so long content
+           is safe to drop straight in here. -->
+      <div style="text-align:center;padding:26px 10px;">
+        <div style="font-size:36px;margin-bottom:10px;">🚧</div>
+        <div style="font-weight:700;margin-bottom:6px;">เนื้อหากำลังจัดทำ</div>
+        <div class="muted" style="font-size:13px;">คู่มือการใช้งานระบบจะเพิ่มเติมเร็วๆ นี้</div>
+      </div>
     </div>
   </div>
 </div>
@@ -3716,11 +3777,6 @@ const Render = {
       const el = document.querySelector('#sidebar-nav .nav-item[data-view="'+view+'"]');
       if(el) el.style.display = allowed.includes(view) ? '' : 'none';
     });
-    // Dashboard's own "＋ เอกสารใหม่" quick-action button — hide it too for a role
-    // that can't reach the editor view at all (e.g. authorized), so there's no
-    // dead button left sitting on Dashboard that just bounces back with an error.
-    const quickNewBtn = document.getElementById('btn-quick-new');
-    if(quickNewBtn) quickNewBtn.style.display = allowed.includes('editor') ? '' : 'none';
     Render.updateApprovalsBadge();
   },
 
@@ -7366,8 +7422,6 @@ function wireEvents(){
       const view = item.dataset.view;
       if(view === 'editor'){
         Editor.newDocument('QT');
-      }else if(view === 'helpdesk'){
-        Modals.open('modal-helpdesk-notice');
       }else{
         Render.showView(view);
       }
@@ -7405,8 +7459,8 @@ function wireEvents(){
   document.getElementById('menu-toggle').addEventListener('click', ()=>{
     document.getElementById('sidebar').classList.toggle('open');
   });
-  document.getElementById('btn-toggle-theme').addEventListener('click', SettingsMod.toggleThemeQuick);
-  document.getElementById('btn-quick-new').addEventListener('click', ()=> Editor.newDocument('QT'));
+  document.getElementById('btn-user-guide').addEventListener('click', ()=> Modals.open('modal-user-guide'));
+  document.getElementById('btn-report-issue').addEventListener('click', ()=> Modals.open('modal-helpdesk-notice'));
   document.getElementById('btn-new-doc-from-list').addEventListener('click', ()=> Editor.newDocument('QT'));
 
   // ---- Modal generic close (X button / cancel button / backdrop click) ----

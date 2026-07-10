@@ -10,7 +10,15 @@
      since the font isn't installed by default on most machines. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- crossorigin is required here (not just on the preconnect hints above) — without it,
+     the browser loads this stylesheet in "no-cors" mode, which makes
+     document.styleSheets[…].cssRules throw a SecurityError the instant any script
+     tries to read it. html2canvas (used by ExportMod.generateDocumentPdfBlob for both
+     "Save as PDF ลงเครื่อง" and the auto-cloud-save snapshot) iterates every stylesheet
+     on the page to clone styles before rendering — that uncaught SecurityError was
+     silently aborting the whole capture, which is why saved/exported PDFs came out
+     completely blank after this font was added. -->
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous">
 <style>
 /* ==========================================================================
    0. RESET & BASE
@@ -395,6 +403,18 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
   font-size:12.5px;line-height:1.4;box-shadow:0 2px 10px rgba(0,0,0,.25);position:relative;
   display:flex;flex-direction:column;
 }
+/* Invoice gets a distinctly different accent color from Quotation so the two document
+   types are visually unmistakable at a glance. Every rule below that reads
+   var(--doc-navy)/var(--doc-navy-soft) — title badge, header border, table headers,
+   info-table labels, net-total row — picks this up automatically since they're CSS
+   custom properties, so this single override is the only change needed (see the
+   matching "type-inv"/"type-qt" class DocPreview.render() puts on .doc-page). Applies
+   identically on screen, browser print, and the html2canvas PDF snapshot, since all
+   three render through the same DocPreview.render()+CSS. */
+.doc-page.type-inv{
+  --doc-navy:#1a5c38;
+  --doc-navy-soft:#e8f5ec;
+}
 /* Payment / notes / signature block always sticks to the bottom of the page —
    margin-top:auto eats any leftover space above it so it never floats high up
    on short documents, but still flows naturally if content overflows the page. */
@@ -512,6 +532,16 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
 @media print{
   @page{size:A4;margin:0;}
   html,body{background:#fff !important;}
+  /* Without this, Chrome/Edge silently strip every background-color (navy headers,
+     table header fills, total-row highlights, etc.) when printing — that's why colors
+     looked washed-out/missing on paper even though the on-screen preview looked fine.
+     Forcing exact color reproduction here means the person printing never has to find
+     and manually enable "Background graphics" in the print dialog's advanced settings. */
+  #print-area, #print-area *{
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
+    color-adjust:exact !important;
+  }
   body *{visibility:hidden;}
   #print-area, #print-area *{visibility:visible;}
   #print-area{position:absolute !important;left:0 !important;top:0;width:210mm;margin:0;padding:0;}
@@ -599,6 +629,17 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
       </div>
     </div>
 
+    <!-- WR Help Desk contact — a single quiet text link (not a popup/QR image), shown on
+         every auth-screen panel (login/signup/pending). Kept intentionally minimal: this
+         user previously asked for the config-recovery link to be removed from this screen
+         because "a clean login page mattered more" (see auth-config-panel comment above),
+         so the full QR+button experience lives inside the app instead (sidebar > แจ้งปัญหา,
+         see #modal-helpdesk-notice) and only a plain link sits out here. -->
+    <div style="text-align:center;margin-top:16px;font-size:12px;">
+      <a href="https://line.me/ti/g2/xEQdgC66ODDoZEYChfHEuA_Ed4VCuwWNIoZZJQ?utm_source=invitation&utm_medium=link_copy&utm_campaign=default"
+         target="_blank" rel="noopener" class="muted">💬 เข้าระบบไม่ได้ / มีปัญหา? ติดต่อ WR Help Desk</a>
+    </div>
+
   </div>
 </div>
 
@@ -622,6 +663,12 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
       <div class="nav-item" data-view="admin-users" id="nav-admin-users" role="button" tabindex="0" style="display:none;"><span class="ic" aria-hidden="true">🛡</span> Admin</div>
       <div class="nav-item" data-view="activity-logs" role="button" tabindex="0"><span class="ic" aria-hidden="true">📜</span> ประวัติการใช้งาน</div>
       <div class="nav-item" data-view="settings" role="button" tabindex="0"><span class="ic" aria-hidden="true">⚙</span> Settings</div>
+      <!-- Not a real "view" — data-view="helpdesk" is special-cased in wireEvents() to open
+           #modal-helpdesk-notice instead of Render.showView(). Deliberately left OUT of
+           Auth.allowedViews()/DEFAULT_ROLE_VIEW_ACCESS's per-role hide/show loop (see
+           Render.renderSidebarUser) so it always stays visible to every role — help
+           shouldn't be something an Admin can accidentally restrict away. -->
+      <div class="nav-item" data-view="helpdesk" role="button" tabindex="0"><span class="ic" aria-hidden="true">💬</span> แจ้งปัญหา</div>
     </nav>
     <div class="nav-foot" id="sidebar-user-foot">
       <div id="sidebar-user-name" style="font-weight:700;color:#fff;font-size:12.5px;">-</div>
@@ -851,6 +898,7 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
             <div class="toolbar no-print" style="margin-top:14px;">
               <button class="btn" id="btn-save-doc">💾 บันทึก</button>
               <button class="btn btn-accent" id="btn-print-doc">🖨 Print / Export PDF</button>
+              <button class="btn" id="btn-save-pdf-computer">⬇ Save as PDF ลงเครื่อง</button>
             </div>
           </div>
         </div>
@@ -952,36 +1000,44 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
       <section class="view" id="view-reports">
         <div class="card" style="padding-bottom:14px;">
           <div class="report-tabs" id="report-tabs">
-            <button class="report-tab" data-report="sales">ยอดขายรวม</button>
-            <button class="report-tab" data-report="quotation">ใบเสนอราคา</button>
-            <button class="report-tab" data-report="invoice">ใบแจ้งหนี้</button>
-            <button class="report-tab" data-report="outstanding">ลูกหนี้ค้างชำระ</button>
-            <button class="report-tab" data-report="vat">VAT</button>
-            <button class="report-tab" data-report="wht">WHT</button>
-            <button class="report-tab" data-report="customer">ลูกค้า</button>
-            <button class="report-tab" data-report="product">สินค้า/บริการ</button>
-            <button class="report-tab" data-report="mgmtfee">Management Fee</button>
+            <button class="report-tab" data-report="sales">ภาพรวมยอดขาย</button>
+            <button class="report-tab" data-report="outstanding">ลูกหนี้และยอดค้างชำระ</button>
             <button class="report-tab" data-report="docstatus">สถานะเอกสาร</button>
+            <button class="report-tab" data-report="tax">ภาษี</button>
+            <button class="report-tab" data-report="custprod">ลูกค้าและสินค้า/บริการ</button>
             <button class="report-tab" data-report="monthly">สรุปรายเดือน</button>
           </div>
         </div>
 
-        <!-- ---------- 1. SALES SUMMARY REPORT ---------- -->
+        <!-- ---------- 1. SALES OVERVIEW (รวมใบเสนอราคา + ใบแจ้งหนี้) ---------- -->
         <div class="report-panel" id="report-panel-sales">
           <div class="card">
-            <div class="card-title">Sales Summary Report — รายงานยอดขายรวม</div>
+            <div class="card-title">Sales Overview — ภาพรวมยอดขาย
+              <span class="muted" style="font-weight:400;font-size:11.5px;">รวมใบเสนอราคาและใบแจ้งหนี้</span>
+            </div>
             <div class="toolbar" style="margin-bottom:14px;">
               <div class="field" style="margin:0;"><label>จากวันที่</label><input type="date" id="rpt-sales-from"></div>
               <div class="field" style="margin:0;"><label>ถึงวันที่</label><input type="date" id="rpt-sales-to"></div>
-              <div class="field" style="margin:0;min-width:160px;"><label>ประเภทเอกสาร</label>
+              <div class="field" style="margin:0;min-width:150px;"><label>ประเภทเอกสาร</label>
                 <select id="rpt-sales-type">
                   <option value="">ทั้งหมด (QT + INV)</option>
                   <option value="QT">เฉพาะใบเสนอราคา</option>
                   <option value="INV">เฉพาะใบแจ้งหนี้</option>
                 </select>
               </div>
+              <div class="field" style="margin:0;min-width:160px;"><label>ลูกค้า</label><select id="rpt-sales-customer"><option value="">ทุกลูกค้า</option></select></div>
+              <div class="field" style="margin:0;min-width:140px;"><label>สถานะ</label>
+                <select id="rpt-sales-status">
+                  <option value="">ทุกสถานะ</option>
+                  <option value="Draft">Draft</option><option value="Sent">Sent</option><option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option><option value="PartiallyPaid">PartiallyPaid</option>
+                  <option value="Paid">Paid</option><option value="Cancelled">Cancelled</option><option value="Overdue">Overdue</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0;min-width:140px;"><label>ผู้สร้าง</label><select id="rpt-sales-creator"><option value="">ทุกคน</option></select></div>
               <div class="field" style="margin:0;min-width:170px;"><label>จัดกลุ่มตาม</label>
                 <select id="rpt-sales-groupby">
+                  <option value="document">รายเอกสาร (QT+INV)</option>
                   <option value="day">รายวัน</option>
                   <option value="month" selected>รายเดือน</option>
                   <option value="year">รายปี</option>
@@ -996,7 +1052,9 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
               <button class="btn btn-sm" onclick="Reports.exportExcel('sales')">⬇ Excel</button>
               <button class="btn btn-sm" onclick="Reports.exportCSV('sales')">⬇ CSV</button>
             </div>
-            <div style="overflow-x:auto;">
+            <div class="report-kpi-grid" id="sales-kpi-grid"></div>
+            <div class="bar-chart" id="sales-chart"></div>
+            <div style="overflow-x:auto;margin-top:10px;">
               <table class="data-table" id="sales-report-table">
                 <thead><tr id="sales-report-thead-row"></tr></thead>
                 <tbody></tbody>
@@ -1006,70 +1064,38 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
           </div>
         </div>
 
-        <!-- ---------- 2. QUOTATION REPORT ---------- -->
-        <div class="report-panel" id="report-panel-quotation">
-          <div class="card">
-            <div class="card-title">Quotation Report — รายงานใบเสนอราคา</div>
-            <div class="toolbar" style="margin-bottom:14px;">
-              <div class="field" style="margin:0;"><label>จากวันที่</label><input type="date" id="rpt-qt-from"></div>
-              <div class="field" style="margin:0;"><label>ถึงวันที่</label><input type="date" id="rpt-qt-to"></div>
-              <div class="spacer"></div>
-              <button class="btn btn-sm" onclick="Reports.printReport('quotation')">🖨 PDF</button>
-              <button class="btn btn-sm" onclick="Reports.exportExcel('quotation')">⬇ Excel</button>
-              <button class="btn btn-sm" onclick="Reports.exportCSV('quotation')">⬇ CSV</button>
-            </div>
-            <div class="report-kpi-grid" id="quotation-kpi-grid"></div>
-            <div style="overflow-x:auto;">
-              <table class="data-table" id="quotation-report-table">
-                <thead><tr>
-                  <th>เลขที่</th><th>วันที่</th><th>ลูกค้า</th><th>Project</th>
-                  <th class="text-right">Grand Total</th><th>สถานะ</th><th>Convert แล้ว</th>
-                </tr></thead>
-                <tbody></tbody>
-              </table>
-              <div class="empty-state" id="quotation-report-empty" style="display:none;">ไม่มีใบเสนอราคาในช่วงที่เลือก</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ---------- 3. INVOICE REPORT ---------- -->
-        <div class="report-panel" id="report-panel-invoice">
-          <div class="card">
-            <div class="card-title">Invoice Report — รายงานใบแจ้งหนี้</div>
-            <div class="toolbar" style="margin-bottom:14px;">
-              <div class="field" style="margin:0;"><label>จากวันที่</label><input type="date" id="rpt-inv-from"></div>
-              <div class="field" style="margin:0;"><label>ถึงวันที่</label><input type="date" id="rpt-inv-to"></div>
-              <div class="spacer"></div>
-              <button class="btn btn-sm" onclick="Reports.printReport('invoice')">🖨 PDF</button>
-              <button class="btn btn-sm" onclick="Reports.exportExcel('invoice')">⬇ Excel</button>
-              <button class="btn btn-sm" onclick="Reports.exportCSV('invoice')">⬇ CSV</button>
-            </div>
-            <div class="report-kpi-grid" id="invoice-kpi-grid"></div>
-            <div style="overflow-x:auto;">
-              <table class="data-table" id="invoice-report-table">
-                <thead><tr>
-                  <th>เลขที่</th><th>วันที่</th><th>ลูกค้า</th>
-                  <th class="text-right">Grand Total</th><th class="text-right">ยอดคงเหลือ</th><th>สถานะ</th>
-                </tr></thead>
-                <tbody></tbody>
-              </table>
-              <div class="empty-state" id="invoice-report-empty" style="display:none;">ไม่มีใบแจ้งหนี้ในช่วงที่เลือก</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ---------- 4. OUTSTANDING REPORT ---------- -->
+        <!-- ---------- 2. OUTSTANDING — ลูกหนี้และยอดค้างชำระ ---------- -->
         <div class="report-panel" id="report-panel-outstanding">
           <div class="card">
-            <div class="card-title">Outstanding Report — รายงานลูกหนี้ค้างชำระ
+            <div class="card-title">Outstanding Report — ลูกหนี้และยอดค้างชำระ
               <span class="muted" style="font-weight:400;font-size:11.5px;">เรียงตามจำนวนวันที่เกินกำหนดมากสุด</span>
             </div>
-            <div class="toolbar" style="margin-bottom:10px;justify-content:flex-end;">
+            <div class="toolbar" style="margin-bottom:14px;">
+              <div class="field" style="margin:0;"><label>จากวันที่</label><input type="date" id="rpt-outstanding-from"></div>
+              <div class="field" style="margin:0;"><label>ถึงวันที่</label><input type="date" id="rpt-outstanding-to"></div>
+              <div class="field" style="margin:0;min-width:150px;"><label>ประเภทเอกสาร</label>
+                <select id="rpt-outstanding-type">
+                  <option value="">ทั้งหมด</option><option value="QT">ใบเสนอราคา</option><option value="INV">ใบแจ้งหนี้</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0;min-width:160px;"><label>ลูกค้า</label><select id="rpt-outstanding-customer"><option value="">ทุกลูกค้า</option></select></div>
+              <div class="field" style="margin:0;min-width:140px;"><label>สถานะ</label>
+                <select id="rpt-outstanding-status">
+                  <option value="">ทุกสถานะ</option>
+                  <option value="Draft">Draft</option><option value="Sent">Sent</option><option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option><option value="PartiallyPaid">PartiallyPaid</option>
+                  <option value="Paid">Paid</option><option value="Cancelled">Cancelled</option><option value="Overdue">Overdue</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0;min-width:140px;"><label>ผู้สร้าง</label><select id="rpt-outstanding-creator"><option value="">ทุกคน</option></select></div>
+              <div class="spacer"></div>
               <button class="btn btn-sm" onclick="Reports.printReport('outstanding')">🖨 PDF</button>
               <button class="btn btn-sm" onclick="Reports.exportExcel('outstanding')">⬇ Excel</button>
               <button class="btn btn-sm" onclick="Reports.exportCSV('outstanding')">⬇ CSV</button>
             </div>
-            <div style="overflow-x:auto;">
+            <div class="report-kpi-grid" id="outstanding-kpi-grid"></div>
+            <div class="bar-chart" id="outstanding-chart"></div>
+            <div style="overflow-x:auto;margin-top:10px;">
               <table class="data-table" id="ar-detail-table">
                 <thead><tr>
                   <th>ลูกค้า</th><th>เลข Invoice</th><th>วันที่ออกเอกสาร</th><th>วันครบกำหนด</th>
@@ -1080,158 +1106,51 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
               <div class="empty-state" id="ar-detail-empty" style="display:none;">ไม่มีลูกหนี้ค้างชำระ 🎉</div>
             </div>
           </div>
-        </div>
-
-        <!-- ---------- 5. VAT REPORT ---------- -->
-        <div class="report-panel" id="report-panel-vat">
           <div class="card">
-            <div class="card-title">VAT Report — รายงานภาษีมูลค่าเพิ่ม</div>
-            <div class="toolbar" style="margin-bottom:14px;">
-              <div class="field" style="margin:0;"><label>จากวันที่</label><input type="date" id="rpt-vat-from"></div>
-              <div class="field" style="margin:0;"><label>ถึงวันที่</label><input type="date" id="rpt-vat-to"></div>
-              <div class="spacer"></div>
-              <button class="btn btn-sm" onclick="Reports.printReport('vat')">🖨 PDF</button>
-              <button class="btn btn-sm" onclick="Reports.exportExcel('vat')">⬇ Excel</button>
-              <button class="btn btn-sm" onclick="Reports.exportCSV('vat')">⬇ CSV</button>
-            </div>
+            <div class="card-title">สรุปอายุลูกหนี้ (AR Aging) <span class="muted" style="font-weight:400;font-size:11.5px;">ตามช่วงวันที่เกินกำหนด</span></div>
             <div style="overflow-x:auto;">
-              <table class="data-table" id="vat-report-table">
+              <table class="data-table" id="outstanding-aging-table">
                 <thead><tr>
-                  <th>เลขเอกสาร</th><th>วันที่</th><th>ลูกค้า</th><th>Tax ID</th>
-                  <th class="text-right">Tax Base</th><th class="text-right">VAT</th><th class="text-right">Grand Total</th>
+                  <th>ลูกค้า</th><th class="text-right">ยังไม่ครบกำหนด</th><th class="text-right">1-30 วัน</th>
+                  <th class="text-right">31-60 วัน</th><th class="text-right">61-90 วัน</th><th class="text-right">มากกว่า 90 วัน</th><th class="text-right">รวม</th>
                 </tr></thead>
                 <tbody></tbody>
               </table>
-              <div class="empty-state" id="vat-report-empty" style="display:none;">ไม่มีเอกสารที่มี VAT ในช่วงที่เลือก</div>
+              <div class="empty-state" id="outstanding-aging-empty" style="display:none;">ไม่มีลูกหนี้ค้างชำระ</div>
             </div>
           </div>
         </div>
 
-        <!-- ---------- 6. WHT REPORT ---------- -->
-        <div class="report-panel" id="report-panel-wht">
-          <div class="card">
-            <div class="card-title">WHT Report — รายงานภาษีหัก ณ ที่จ่าย</div>
-            <div class="toolbar" style="margin-bottom:14px;">
-              <div class="field" style="margin:0;"><label>จากวันที่</label><input type="date" id="rpt-wht-from"></div>
-              <div class="field" style="margin:0;"><label>ถึงวันที่</label><input type="date" id="rpt-wht-to"></div>
-              <div class="spacer"></div>
-              <button class="btn btn-sm" onclick="Reports.printReport('wht')">🖨 PDF</button>
-              <button class="btn btn-sm" onclick="Reports.exportExcel('wht')">⬇ Excel</button>
-              <button class="btn btn-sm" onclick="Reports.exportCSV('wht')">⬇ CSV</button>
-            </div>
-            <div style="overflow-x:auto;">
-              <table class="data-table" id="wht-report-table">
-                <thead><tr>
-                  <th>เลขเอกสาร</th><th>วันที่</th><th>ลูกค้า</th><th>Tax ID</th>
-                  <th class="text-right">Tax Base</th><th class="text-right">WHT %</th><th class="text-right">WHT Amount</th><th class="text-right">Net Payable</th>
-                </tr></thead>
-                <tbody></tbody>
-              </table>
-              <div class="empty-state" id="wht-report-empty" style="display:none;">ไม่มีเอกสารที่มี WHT ในช่วงที่เลือก</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ---------- 7. CUSTOMER REPORT ---------- -->
-        <div class="report-panel" id="report-panel-customer">
-          <div class="card">
-            <div class="card-title">Customer Report — รายงานลูกค้า</div>
-            <div class="toolbar" style="margin-bottom:14px;justify-content:flex-end;">
-              <button class="btn btn-sm" onclick="Reports.printReport('customer')">🖨 PDF</button>
-              <button class="btn btn-sm" onclick="Reports.exportExcel('customer')">⬇ Excel</button>
-              <button class="btn btn-sm" onclick="Reports.exportCSV('customer')">⬇ CSV</button>
-            </div>
-            <div style="overflow-x:auto;">
-              <table class="data-table" id="customer-report-table">
-                <thead><tr>
-                  <th>ลูกค้า</th><th class="text-right">จำนวนเอกสาร</th><th class="text-right">ยอดขายรวม</th>
-                  <th class="text-right">ยอดค้างชำระ</th><th>หมายเหตุ</th>
-                </tr></thead>
-                <tbody></tbody>
-              </table>
-              <div class="empty-state" id="customer-report-empty" style="display:none;">ยังไม่มีข้อมูลลูกค้า</div>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-title">ประวัติเอกสารของลูกค้า</div>
-            <div class="field" style="max-width:340px;"><label>เลือกลูกค้า</label><select id="rpt-customer-history-select"></select></div>
-            <div style="overflow-x:auto;">
-              <table class="data-table" id="customer-history-table">
-                <thead><tr><th>เลขที่</th><th>ประเภท</th><th>วันที่</th><th class="text-right">Grand Total</th><th>สถานะ</th></tr></thead>
-                <tbody></tbody>
-              </table>
-              <div class="empty-state" id="customer-history-empty" style="display:none;">เลือกลูกค้าเพื่อดูประวัติเอกสาร</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ---------- 8. PRODUCT / SERVICE REPORT ---------- -->
-        <div class="report-panel" id="report-panel-product">
-          <div class="card">
-            <div class="card-title">Product / Service Report — รายงานสินค้า/บริการ</div>
-            <div class="toolbar" style="margin-bottom:14px;">
-              <div class="field" style="margin:0;min-width:200px;"><label>เรียงตาม</label>
-                <select id="rpt-product-sort">
-                  <option value="amount">ยอดรวมสูงสุด</option>
-                  <option value="count">จำนวนครั้งที่ใช้มากสุด</option>
-                </select>
-              </div>
-              <div class="spacer"></div>
-              <button class="btn btn-sm" onclick="Reports.printReport('product')">🖨 PDF</button>
-              <button class="btn btn-sm" onclick="Reports.exportExcel('product')">⬇ Excel</button>
-              <button class="btn btn-sm" onclick="Reports.exportCSV('product')">⬇ CSV</button>
-            </div>
-            <div style="overflow-x:auto;">
-              <table class="data-table" id="product-report-table">
-                <thead><tr>
-                  <th>สินค้า/บริการ</th><th class="text-right">จำนวนครั้งที่ใช้</th>
-                  <th class="text-right">จำนวนรวม</th><th class="text-right">ยอดรวม</th>
-                </tr></thead>
-                <tbody></tbody>
-              </table>
-              <div class="empty-state" id="product-report-empty" style="display:none;">ยังไม่มีข้อมูลสินค้า/บริการในเอกสาร</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ---------- 9. MANAGEMENT FEE REPORT ---------- -->
-        <div class="report-panel" id="report-panel-mgmtfee">
-          <div class="card">
-            <div class="card-title">Management Fee Report — รายงาน Management Fee</div>
-            <div class="toolbar" style="margin-bottom:14px;">
-              <div class="field" style="margin:0;"><label>จากวันที่</label><input type="date" id="rpt-mgmtfee-from"></div>
-              <div class="field" style="margin:0;"><label>ถึงวันที่</label><input type="date" id="rpt-mgmtfee-to"></div>
-              <div class="spacer"></div>
-              <button class="btn btn-sm" onclick="Reports.printReport('mgmtfee')">🖨 PDF</button>
-              <button class="btn btn-sm" onclick="Reports.exportExcel('mgmtfee')">⬇ Excel</button>
-              <button class="btn btn-sm" onclick="Reports.exportCSV('mgmtfee')">⬇ CSV</button>
-            </div>
-            <div style="overflow-x:auto;">
-              <table class="data-table" id="mgmtfee-report-table">
-                <thead><tr>
-                  <th>เลขที่</th><th>ลูกค้า</th><th class="text-right">Subtotal</th>
-                  <th class="text-right">Mgmt Fee %</th><th class="text-right">Mgmt Fee Amount</th>
-                  <th class="text-right">VAT</th><th class="text-right">Grand Total</th>
-                </tr></thead>
-                <tbody></tbody>
-              </table>
-              <div class="empty-state" id="mgmtfee-report-empty" style="display:none;">ไม่มีเอกสารที่เปิดใช้ Management Fee</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ---------- 10. DOCUMENT STATUS REPORT ---------- -->
+        <!-- ---------- 3. DOCUMENT STATUS REPORT — สถานะเอกสาร ---------- -->
         <div class="report-panel" id="report-panel-docstatus">
           <div class="card">
-            <div class="card-title">Document Status Report — รายงานสถานะเอกสาร
-              <span style="float:right;">
-                <button class="btn btn-sm" onclick="Reports.printReport('docstatus')">🖨 PDF</button>
-                <button class="btn btn-sm" onclick="Reports.exportExcel('docstatus')">⬇ Excel</button>
-                <button class="btn btn-sm" onclick="Reports.exportCSV('docstatus')">⬇ CSV</button>
-              </span>
+            <div class="card-title">Document Status Report — สถานะเอกสาร</div>
+            <div class="toolbar" style="margin-bottom:14px;">
+              <div class="field" style="margin:0;"><label>จากวันที่</label><input type="date" id="rpt-docstatus-from"></div>
+              <div class="field" style="margin:0;"><label>ถึงวันที่</label><input type="date" id="rpt-docstatus-to"></div>
+              <div class="field" style="margin:0;min-width:150px;"><label>ประเภทเอกสาร</label>
+                <select id="rpt-docstatus-type">
+                  <option value="">ทั้งหมด</option><option value="QT">ใบเสนอราคา</option><option value="INV">ใบแจ้งหนี้</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0;min-width:160px;"><label>ลูกค้า</label><select id="rpt-docstatus-customer"><option value="">ทุกลูกค้า</option></select></div>
+              <div class="field" style="margin:0;min-width:140px;"><label>สถานะ</label>
+                <select id="rpt-docstatus-status">
+                  <option value="">ทุกสถานะ</option>
+                  <option value="Draft">Draft</option><option value="Sent">Sent</option><option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option><option value="PartiallyPaid">PartiallyPaid</option>
+                  <option value="Paid">Paid</option><option value="Cancelled">Cancelled</option><option value="Overdue">Overdue</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0;min-width:140px;"><label>ผู้สร้าง</label><select id="rpt-docstatus-creator"><option value="">ทุกคน</option></select></div>
+              <div class="spacer"></div>
+              <button class="btn btn-sm" onclick="Reports.printReport('docstatus')">🖨 PDF</button>
+              <button class="btn btn-sm" onclick="Reports.exportExcel('docstatus')">⬇ Excel</button>
+              <button class="btn btn-sm" onclick="Reports.exportCSV('docstatus')">⬇ CSV</button>
             </div>
             <div class="report-kpi-grid" id="docstatus-kpi-grid"></div>
-            <div style="overflow-x:auto;">
+            <div class="bar-chart" id="docstatus-chart"></div>
+            <div style="overflow-x:auto;margin-top:10px;">
               <table class="data-table" id="docstatus-report-table">
                 <thead><tr><th>สถานะ</th><th class="text-right">Quotation</th><th class="text-right">Invoice</th><th class="text-right">รวม</th></tr></thead>
                 <tbody></tbody>
@@ -1244,19 +1163,177 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
           </div>
         </div>
 
-        <!-- ---------- 11. MONTHLY PERFORMANCE REPORT ---------- -->
+        <!-- ---------- 4. TAX REPORT (VAT + WHT) — ภาษี ---------- -->
+        <div class="report-panel" id="report-panel-tax">
+          <div class="card">
+            <div class="card-title">Tax Report — ภาษี
+              <span class="muted" style="font-weight:400;font-size:11.5px;">รวม VAT และ WHT</span>
+            </div>
+            <div class="toolbar" style="margin-bottom:14px;">
+              <div class="field" style="margin:0;"><label>จากวันที่</label><input type="date" id="rpt-tax-from"></div>
+              <div class="field" style="margin:0;"><label>ถึงวันที่</label><input type="date" id="rpt-tax-to"></div>
+              <div class="field" style="margin:0;min-width:150px;"><label>ประเภทเอกสาร</label>
+                <select id="rpt-tax-type">
+                  <option value="">ทั้งหมด</option><option value="QT">ใบเสนอราคา</option><option value="INV">ใบแจ้งหนี้</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0;min-width:160px;"><label>ลูกค้า</label><select id="rpt-tax-customer"><option value="">ทุกลูกค้า</option></select></div>
+              <div class="field" style="margin:0;min-width:140px;"><label>สถานะ</label>
+                <select id="rpt-tax-status">
+                  <option value="">ทุกสถานะ</option>
+                  <option value="Draft">Draft</option><option value="Sent">Sent</option><option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option><option value="PartiallyPaid">PartiallyPaid</option>
+                  <option value="Paid">Paid</option><option value="Cancelled">Cancelled</option><option value="Overdue">Overdue</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0;min-width:140px;"><label>ผู้สร้าง</label><select id="rpt-tax-creator"><option value="">ทุกคน</option></select></div>
+              <div class="field" style="margin:0;min-width:150px;"><label>ประเภทภาษี</label>
+                <select id="rpt-tax-mode">
+                  <option value="">VAT + WHT</option><option value="vat">เฉพาะ VAT</option><option value="wht">เฉพาะ WHT</option>
+                </select>
+              </div>
+              <div class="spacer"></div>
+              <button class="btn btn-sm" onclick="Reports.printReport('tax')">🖨 PDF</button>
+              <button class="btn btn-sm" onclick="Reports.exportExcel('tax')">⬇ Excel</button>
+              <button class="btn btn-sm" onclick="Reports.exportCSV('tax')">⬇ CSV</button>
+            </div>
+            <div class="report-kpi-grid" id="tax-kpi-grid"></div>
+            <div class="bar-chart" id="tax-chart"></div>
+            <div style="overflow-x:auto;margin-top:10px;">
+              <table class="data-table" id="tax-report-table">
+                <thead><tr>
+                  <th>เลขเอกสาร</th><th>วันที่</th><th>ลูกค้า</th><th>Tax ID</th>
+                  <th class="text-right">Tax Base</th><th class="text-right">VAT</th><th class="text-right">WHT %</th>
+                  <th class="text-right">WHT Amount</th><th class="text-right">Grand Total</th><th class="text-right">Net Payable</th>
+                </tr></thead>
+                <tbody></tbody>
+              </table>
+              <div class="empty-state" id="tax-report-empty" style="display:none;">ไม่มีเอกสารที่มีภาษีในช่วงที่เลือก</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---------- 5. CUSTOMER & PRODUCT/SERVICE — ลูกค้าและสินค้า/บริการ ---------- -->
+        <div class="report-panel" id="report-panel-custprod">
+          <div class="card">
+            <div class="card-title">Customer & Product Report — ลูกค้าและสินค้า/บริการ
+              <span class="muted" style="font-weight:400;font-size:11.5px;">รวมลูกค้า สินค้า/บริการ และ Management Fee</span>
+            </div>
+            <div class="toolbar" style="margin-bottom:14px;">
+              <div class="field" style="margin:0;"><label>จากวันที่</label><input type="date" id="rpt-cp-from"></div>
+              <div class="field" style="margin:0;"><label>ถึงวันที่</label><input type="date" id="rpt-cp-to"></div>
+              <div class="field" style="margin:0;min-width:150px;"><label>ประเภทเอกสาร</label>
+                <select id="rpt-cp-type">
+                  <option value="">ทั้งหมด</option><option value="QT">ใบเสนอราคา</option><option value="INV">ใบแจ้งหนี้</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0;min-width:160px;"><label>ลูกค้า</label><select id="rpt-cp-customer"><option value="">ทุกลูกค้า</option></select></div>
+              <div class="field" style="margin:0;min-width:140px;"><label>สถานะ</label>
+                <select id="rpt-cp-status">
+                  <option value="">ทุกสถานะ</option>
+                  <option value="Draft">Draft</option><option value="Sent">Sent</option><option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option><option value="PartiallyPaid">PartiallyPaid</option>
+                  <option value="Paid">Paid</option><option value="Cancelled">Cancelled</option><option value="Overdue">Overdue</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0;min-width:140px;"><label>ผู้สร้าง</label><select id="rpt-cp-creator"><option value="">ทุกคน</option></select></div>
+              <div class="spacer"></div>
+              <button class="btn btn-sm" onclick="Reports.printReport('custprod')">🖨 PDF</button>
+              <button class="btn btn-sm" onclick="Reports.exportExcel('custprod')">⬇ Excel</button>
+              <button class="btn btn-sm" onclick="Reports.exportCSV('custprod')">⬇ CSV</button>
+            </div>
+            <div class="report-kpi-grid" id="custprod-kpi-grid"></div>
+            <div class="bar-chart" id="custprod-chart"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">สรุปยอดขายตามลูกค้า</div>
+            <div style="overflow-x:auto;">
+              <table class="data-table" id="cp-customer-table">
+                <thead><tr>
+                  <th>ลูกค้า</th><th class="text-right">จำนวนเอกสาร</th><th class="text-right">ยอดขายรวม</th>
+                  <th class="text-right">ยอดค้างชำระ</th><th>หมายเหตุ</th>
+                </tr></thead>
+                <tbody></tbody>
+              </table>
+              <div class="empty-state" id="cp-customer-empty" style="display:none;">ยังไม่มีข้อมูลลูกค้าในช่วงที่เลือก</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">ประวัติเอกสารของลูกค้า</div>
+            <div class="field" style="max-width:340px;"><label>เลือกลูกค้า</label><select id="rpt-cp-history-select"></select></div>
+            <div style="overflow-x:auto;">
+              <table class="data-table" id="customer-history-table">
+                <thead><tr><th>เลขที่</th><th>ประเภท</th><th>วันที่</th><th class="text-right">Grand Total</th><th>สถานะ</th></tr></thead>
+                <tbody></tbody>
+              </table>
+              <div class="empty-state" id="customer-history-empty" style="display:none;">เลือกลูกค้าเพื่อดูประวัติเอกสาร</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">สินค้า/บริการ
+              <span style="float:right;">
+                <select id="rpt-cp-product-sort" style="font-size:12.5px;padding:6px 8px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);">
+                  <option value="amount">เรียงตามยอดรวมสูงสุด</option>
+                  <option value="count">เรียงตามจำนวนครั้งที่ใช้มากสุด</option>
+                </select>
+              </span>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="data-table" id="cp-product-table">
+                <thead><tr>
+                  <th>สินค้า/บริการ</th><th class="text-right">จำนวนครั้งที่ใช้</th>
+                  <th class="text-right">จำนวนรวม</th><th class="text-right">ยอดรวม</th>
+                </tr></thead>
+                <tbody></tbody>
+              </table>
+              <div class="empty-state" id="cp-product-empty" style="display:none;">ยังไม่มีข้อมูลสินค้า/บริการในช่วงที่เลือก</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Management Fee</div>
+            <div style="overflow-x:auto;">
+              <table class="data-table" id="cp-mgmtfee-table">
+                <thead><tr>
+                  <th>เลขที่</th><th>ลูกค้า</th><th class="text-right">Subtotal</th>
+                  <th class="text-right">Mgmt Fee %</th><th class="text-right">Mgmt Fee Amount</th>
+                  <th class="text-right">VAT</th><th class="text-right">Grand Total</th>
+                </tr></thead>
+                <tbody></tbody>
+              </table>
+              <div class="empty-state" id="cp-mgmtfee-empty" style="display:none;">ไม่มีเอกสารที่เปิดใช้ Management Fee ในช่วงที่เลือก</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---------- 6. MONTHLY PERFORMANCE REPORT — สรุปรายเดือน ---------- -->
         <div class="report-panel" id="report-panel-monthly">
           <div class="card">
-            <div class="card-title">Monthly Performance Report — รายงานสรุปรายเดือน</div>
+            <div class="card-title">Monthly Performance Report — สรุปรายเดือน</div>
             <div class="toolbar" style="margin-bottom:14px;">
               <div class="field" style="margin:0;"><label>เดือน</label><input type="month" id="rpt-monthly-month"></div>
+              <div class="field" style="margin:0;min-width:150px;"><label>ประเภทเอกสาร</label>
+                <select id="rpt-monthly-type">
+                  <option value="">ทั้งหมด</option><option value="QT">ใบเสนอราคา</option><option value="INV">ใบแจ้งหนี้</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0;min-width:160px;"><label>ลูกค้า</label><select id="rpt-monthly-customer"><option value="">ทุกลูกค้า</option></select></div>
+              <div class="field" style="margin:0;min-width:140px;"><label>สถานะ</label>
+                <select id="rpt-monthly-status">
+                  <option value="">ทุกสถานะ</option>
+                  <option value="Draft">Draft</option><option value="Sent">Sent</option><option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option><option value="PartiallyPaid">PartiallyPaid</option>
+                  <option value="Paid">Paid</option><option value="Cancelled">Cancelled</option><option value="Overdue">Overdue</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0;min-width:140px;"><label>ผู้สร้าง</label><select id="rpt-monthly-creator"><option value="">ทุกคน</option></select></div>
               <div class="spacer"></div>
               <button class="btn btn-sm" onclick="Reports.printReport('monthly')">🖨 PDF</button>
               <button class="btn btn-sm" onclick="Reports.exportExcel('monthly')">⬇ Excel</button>
               <button class="btn btn-sm" onclick="Reports.exportCSV('monthly')">⬇ CSV</button>
             </div>
             <div class="report-kpi-grid" id="monthly-kpi-grid"></div>
-            <div class="card-title" style="font-size:13px;margin-top:6px;">ลูกค้ายอดสูงสุดประจำเดือน</div>
+            <div class="bar-chart" id="monthly-chart"></div>
+            <div class="card-title" style="font-size:13px;margin-top:14px;">ลูกค้ายอดสูงสุดประจำเดือน</div>
             <div style="overflow-x:auto;">
               <table class="data-table" id="monthly-top-customers-table">
                 <thead><tr><th>ลูกค้า</th><th class="text-right">จำนวนเอกสาร</th><th class="text-right">ยอดขาย</th></tr></thead>
@@ -1649,15 +1726,52 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
   </div>
 </div>
 
+<!-- Help Desk — opened manually now (sidebar "แจ้งปัญหา" nav item, see wireEvents()'s
+     activate(), and the plain text link on the auth screen), no longer an automatic
+     popup before login (moved per user request — a blocking popup on the login
+     screen wasn't wanted). Uses the app's generic .modal-backdrop/data-close pattern,
+     so the X button, "ปิด" button, and clicking outside all close it the same way
+     every other modal does — no extra wiring needed.
+     Visual pass: QR sits in its own framed card (gray-50 + shadow) instead of
+     floating bare; the LINE join button uses .btn-success (brand-appropriate green,
+     matches this app's existing green/red/amber accent convention) so it reads as
+     the one primary action, while the footer button is now a plain neutral .btn
+     since it only dismisses the dialog. -->
+<div class="modal-backdrop no-print" id="modal-helpdesk-notice">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-head"><h3>💬 WR Help Desk</h3><button class="modal-close" data-close aria-label="ปิดหน้าต่าง">✕</button></div>
+    <div class="modal-body" style="text-align:center;">
+      <div class="muted" style="font-size:13px;margin-bottom:16px;">สอบถาม-แจ้งปัญหาการใช้งานระบบ</div>
+      <div style="display:inline-block;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:16px;">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Fline.me%2Fti%2Fg2%2FxEQdgC66ODDoZEYChfHEuA_Ed4VCuwWNIoZZJQ%3Futm_source%3Dinvitation%26utm_medium%3Dlink_copy%26utm_campaign%3Ddefault"
+             alt="QR Code เข้ากลุ่ม LINE - WR Help Desk"
+             style="width:200px;height:200px;border-radius:var(--radius-sm);display:block;"
+             onerror="this.style.display='none'; document.getElementById('helpdesk-qr-fallback').style.display='block';">
+        <div id="helpdesk-qr-fallback" class="field-hint" style="display:none;">โหลด QR Code ไม่สำเร็จ — กดปุ่มด้านล่างเพื่อเข้ากลุ่มแทน</div>
+      </div>
+      <a href="https://line.me/ti/g2/xEQdgC66ODDoZEYChfHEuA_Ed4VCuwWNIoZZJQ?utm_source=invitation&utm_medium=link_copy&utm_campaign=default"
+         target="_blank" rel="noopener" class="btn btn-success btn-block" style="text-decoration:none;display:block;">💬 เข้ากลุ่ม LINE</a>
+      <div class="field-hint" style="margin-top:14px;">หากเข้าสู่ระบบไม่ได้ หรือพบปัญหาการใช้งานระบบ สามารถแจ้งได้ที่กลุ่มนี้</div>
+    </div>
+  </div>
+</div>
+
 <!-- Supabase JS SDK (loaded from CDN; window.supabase is undefined if this fails to load,
      e.g. offline — the Cloud module below degrades gracefully to localStorage-only in that case) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- html2pdf.js (bundles jsPDF + html2canvas) — used ONLY to auto-generate a PDF snapshot
-     in the background and upload it to Supabase Storage when a document is saved. The
-     existing manual Print/Export-PDF button still uses the browser's native print dialog
-     (window.print()) untouched; this is a separate, additive path. If this fails to load
-     (offline), the auto-save-to-cloud step just skips itself with a toast. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<!-- html2canvas + jsPDF — used ONLY to rasterize a PDF snapshot in the background: on save
+     (auto-upload to Supabase Storage) and for the "Save as PDF ลงเครื่อง" direct-download
+     button. The existing manual Print/Export-PDF button still uses the browser's native
+     print dialog (window.print()) untouched; this is a separate, additive path. If these
+     fail to load (offline), that snapshot step just skips itself with a toast.
+     NOTE: previously used the bundled html2pdf.js (0.10.1), but its bundled html2canvas
+     build always computed canvas HEIGHT as 0 in current Chrome (width came out fine) —
+     producing a ~3KB blank PDF regardless of content. Loading html2canvas/jsPDF directly
+     (newer, independently-updated builds) and driving them ourselves in
+     ExportMod.generateDocumentPdfBlob() fixed it — verified a real ~300KB rendered PDF
+     instead of the ~3KB blank one. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 /* ============================================================================
    QUOTATION & INVOICE SYSTEM — Single-file Vanilla JS Application
@@ -3228,6 +3342,11 @@ const Documents = {
     d.status = 'Sent';
     Storage.save();
     ActivityLog.log('อนุมัติเอกสาร', d.type === 'INV' ? 'Invoice' : 'Quotation', { recordId: d.id, recordName: d.docNumber, note: 'ขั้นที่ 3 — บัญชีอนุมัติ + วางบิล (จากคิวรออนุมัติ)' });
+    // Auto-generate the Invoice immediately (per user request) — no-op if d isn't a
+    // QT or was already converted. See Documents.autoConvertOnAcctApproval() for why
+    // it inherits the completed workflow + starts locked instead of a fresh draft.
+    const inv = Documents.autoConvertOnAcctApproval(d);
+    if(inv) ActivityLog.log('สร้างใบแจ้งหนี้อัตโนมัติ', 'Invoice', { recordId: inv.id, recordName: inv.docNumber, note: `อัตโนมัติจาก ${d.docNumber} (บัญชีอนุมัติแล้ว) — ล็อกแก้ไข`, after: inv });
     return d;
   },
 
@@ -3293,6 +3412,66 @@ const Documents = {
     inv.items = inv.items.map(it=> Object.assign({}, it, {id:Utils.uid('it')}));
     DB.documents.push(inv);
     src.convertedToId = inv.id;
+    Documents.commitNumber('INV', inv.date, inv.docNumber);
+    Storage.save();
+    return inv;
+  },
+
+  /** Auto-generates the Invoice the MOMENT a Quotation passes accounting approval
+   *  (step 3 / วางบิล) — per user request, this replaces waiting for someone to
+   *  press the manual "→INV" button (Actions.convertDoc/Documents.convertToInvoice,
+   *  still available separately for ad-hoc use). Unlike a manual conversion, the
+   *  result:
+   *    - inherits the source's already-completed workflow (authApproved/acctApproved
+   *      + who/when) instead of Documents.blankWorkflow() — the quotation was already
+   *      vetted through both approval steps, so making the invoice repeat that whole
+   *      cycle from scratch would be redundant, and the user asked for it "ทันที"
+   *      (immediately usable), not "pending review again".
+   *    - starts at status 'Sent' (billed/ready), not 'Draft'.
+   *    - is marked locked:true ("แบบแก้ไขไม่ได้") — see the beforeDoc.locked guard in
+   *      Editor.save() and the matching banner in Editor.renderWorkflow(); only Admin
+   *      can still edit a locked document, same safety-valve pattern already used for
+   *      the preparer-only lock above.
+   *  Only fires for a QT that hasn't already been converted (src.convertedToId null)
+   *  — approving an INV directly (no source quotation) or re-approving after an undo
+   *  are both no-ops here, same "don't double-convert" guard convertToInvoice() relies
+   *  on the caller for. Called from both Documents.quickApproveAcct() (Pending
+   *  Approvals queue) and Editor.approveAcct() (in-editor step 3 button) so the two
+   *  approval entry points can never drift out of sync. Persists its own changes
+   *  (Storage.save()) so it's safe to call before the caller's own save/persist step. */
+  autoConvertOnAcctApproval(src){
+    if(!src) return null;
+    // Always resolve + mutate the CANONICAL record in DB.documents, never whatever
+    // object the caller happens to hold — Editor.approveAcct() passes UI.editingDraft,
+    // which is a detached deep copy (see Editor.open()/JSON.parse(JSON.stringify(doc))),
+    // not the real array element. Mutating a detached copy's convertedToId would be
+    // silently lost the moment this function's own Storage.save() below serializes the
+    // real DB.documents array, leaving the source quotation looking un-converted
+    // forever (and defeating the double-conversion guard just below). Documents.find()
+    // returns the live reference (Array.prototype.find, not a copy), so this is safe
+    // to call even right after the caller's own Documents.save()/_persistDraft().
+    const real = Documents.find(src.id) || src;
+    if(real.type !== 'QT' || real.convertedToId) return null;
+    const inv = JSON.parse(JSON.stringify(real));
+    inv.id = Utils.uid('doc');
+    inv.type = 'INV';
+    inv.status = 'Sent';
+    inv.date = Utils.todayISO();
+    inv.dueDate = Utils.addDaysISO(inv.date, inv.credit||30);
+    inv.docNumber = Documents.generateNumber('INV', inv.date);
+    inv.convertedFromId = real.id;
+    inv.convertedToId = null;
+    inv.workflow = {
+      authApproved: true, authApprovedBy: real.workflow.authApprovedBy, authApprovedAt: real.workflow.authApprovedAt,
+      acctApproved: true, acctApprovedBy: real.workflow.acctApprovedBy, acctApprovedAt: real.workflow.acctApprovedAt
+    };
+    inv.locked = true;
+    inv.payments = []; // starts with a clean payment history
+    inv.rejectReason=''; inv.rejectedBy=''; inv.rejectedAt=null;
+    inv.createdAt = Date.now(); inv.updatedAt = Date.now();
+    inv.items = inv.items.map(it=> Object.assign({}, it, {id:Utils.uid('it')}));
+    DB.documents.push(inv);
+    real.convertedToId = inv.id;
     Documents.commitNumber('INV', inv.date, inv.docNumber);
     Storage.save();
     return inv;
@@ -4214,7 +4393,7 @@ const Render = {
       const checked = UI.docsSelected.has(d.id) ? 'checked' : '';
       return `<tr>
         <td><input type="checkbox" class="doc-row-check" data-id="${d.id}" ${checked}></td>
-        <td class="nowrap">${Utils.escapeHtml(d.docNumber)}</td>
+        <td class="nowrap">${Utils.escapeHtml(d.docNumber)}${d.locked ? ' <span title="ล็อกแก้ไข — สร้างอัตโนมัติจากใบเสนอราคาที่บัญชีอนุมัติแล้ว">🔒</span>' : ''}</td>
         <td>${DOC_TITLES[d.type].en}</td>
         <td class="nowrap">${Utils.formatDateThai(d.date)}</td>
         <td>${Utils.escapeHtml((d.customer&&d.customer.name)||'')}</td>
@@ -4226,7 +4405,11 @@ const Render = {
           <button class="btn btn-sm" title="Print / Export PDF" onclick="ExportMod.printById('${d.id}')">🖨 PDF</button>
           <button class="btn btn-sm" title="Export Excel" onclick="ExportMod.exportExcelById('${d.id}')">⬇ Excel</button>
           <button class="btn btn-sm" onclick="Actions.duplicateDoc('${d.id}')">Duplicate</button>
-          ${(d.type==='QT' && Auth.canDoc('create')) ? `<button class="btn btn-sm" onclick="Actions.convertDoc('${d.id}')">→INV</button>` : ''}
+          <!-- Hidden once already converted (avoids spawning a 2nd invoice from the same
+               quotation) and for preparer (see Actions.convertDoc's matching permission
+               check — preparer cannot create Invoices, per user request; they now come
+               into being automatically via Documents.autoConvertOnAcctApproval instead). -->
+          ${(d.type==='QT' && !d.convertedToId && Auth.canDoc('create') && Auth.role()!=='preparer') ? `<button class="btn btn-sm" onclick="Actions.convertDoc('${d.id}')">→INV</button>` : ''}
           ${Auth.canDoc('delete') ? `<button class="btn btn-sm btn-danger" onclick="Actions.deleteDoc('${d.id}')">ลบ</button>` : ''}
         </td>
       </tr>`;
@@ -4511,7 +4694,7 @@ const DocPreview = {
       ? `<div class="doc-status-watermark">${doc.status.toUpperCase()}</div>` : '';
 
     return `
-      <div class="doc-page">
+      <div class="doc-page type-${doc.type==='INV' ? 'inv' : 'qt'}">
         ${watermark}
         ${headerHtml}
         ${infoHtml}
@@ -4555,6 +4738,16 @@ const Editor = {
   },
 
   populateForm(d){
+    // ผู้จัดทำ (preparer) can only ever produce Quotations — Invoices now come into
+    // being automatically the moment accounting approves one (see
+    // Documents.autoConvertOnAcctApproval), per user request. Disabling the option
+    // (rather than removing it) still lets a preparer correctly VIEW an existing
+    // Invoice that's already open (the browser keeps a disabled-but-selected option
+    // displayed normally) — it only stops them picking INV via this dropdown going
+    // forward. Editor.onTypeChange()/Editor.save() are the hard guards behind this
+    // soft one, in case of anything bypassing the dropdown itself.
+    const invOption = document.querySelector('#doc-type-select option[value="INV"]');
+    if(invOption) invOption.disabled = (Auth.role() === 'preparer');
     document.getElementById('doc-type-select').value = d.type;
     document.getElementById('doc-status-select').value = d.status;
     document.getElementById('cust-name').value = (d.customer && d.customer.name) || '';
@@ -4718,7 +4911,30 @@ const Editor = {
          </div>`
       : '';
 
-    document.getElementById('workflow-panel').innerHTML = `${rejectedBanner}<div class="wf-steps">${step1}${step2}${step3}</div>`;
+    // Tells the preparer up front (before they try to hit บันทึก and get a toast)
+    // that this document is now locked to them — see the matching guard in
+    // Editor.save(). Only shown to the preparer role; admin/accounting/authorized
+    // can still see the normal steps above since they aren't blocked from editing.
+    const lockedBanner = (saved && wf.authApproved && Auth.role() === 'preparer')
+      ? `<div class="wf-rejected-banner">
+           <div class="wf-rejected-title">🔒 เอกสารนี้ถูกล็อกแล้ว</div>
+           <div class="wf-rejected-reason">ผ่านการอนุมัติจากผู้มีอำนาจอนุมัติแล้ว ผู้จัดทำไม่สามารถแก้ไขเอกสารนี้ได้อีก</div>
+           <div class="wf-rejected-meta">ติดต่อ Admin หากจำเป็นต้องแก้ไขข้อมูล</div>
+         </div>`
+      : '';
+
+    // Stronger, everyone-except-Admin version of the banner above — for Invoices
+    // auto-generated the instant accounting approved their source Quotation (see
+    // Documents.autoConvertOnAcctApproval). Takes priority when both could apply.
+    const autoLockedBanner = (d.locked && !Auth.isAdmin())
+      ? `<div class="wf-rejected-banner">
+           <div class="wf-rejected-title">🔒 ใบแจ้งหนี้นี้ถูกล็อกแก้ไข</div>
+           <div class="wf-rejected-reason">สร้างขึ้นอัตโนมัติทันทีที่บัญชีอนุมัติใบเสนอราคาต้นทาง จึงไม่สามารถแก้ไขข้อมูลได้อีก</div>
+           <div class="wf-rejected-meta">ติดต่อ Admin หากจำเป็นต้องแก้ไขข้อมูล</div>
+         </div>`
+      : '';
+
+    document.getElementById('workflow-panel').innerHTML = `${rejectedBanner}${autoLockedBanner || lockedBanner}<div class="wf-steps">${step1}${step2}${step3}</div>`;
   },
 
   /** Persist the current draft (used internally by workflow/payment actions so an
@@ -4782,9 +4998,17 @@ const Editor = {
     document.getElementById('doc-status-select').value = 'Sent';
     if(!Editor._persistDraft()) return;
     ActivityLog.log('อนุมัติเอกสาร', d.type === 'INV' ? 'Invoice' : 'Quotation', { recordId: d.id, recordName: d.docNumber, note: 'ขั้นที่ 3 — บัญชีอนุมัติ + วางบิล' });
+    // Auto-generate the Invoice immediately (per user request) — no-op if d isn't a
+    // QT or was already converted. See Documents.autoConvertOnAcctApproval().
+    const inv = Documents.autoConvertOnAcctApproval(d);
+    if(inv){
+      ActivityLog.log('สร้างใบแจ้งหนี้อัตโนมัติ', 'Invoice', { recordId: inv.id, recordName: inv.docNumber, note: `อัตโนมัติจาก ${d.docNumber} (บัญชีอนุมัติแล้ว) — ล็อกแก้ไข`, after: inv });
+      Utils.toast('อนุมัติขั้นตอนที่ 3 เรียบร้อย — สร้างใบแจ้งหนี้ '+inv.docNumber+' อัตโนมัติแล้ว (ล็อกแก้ไข)', 'ok');
+    }else{
+      Utils.toast('อนุมัติขั้นตอนที่ 3 (บัญชีอนุมัติ + วางบิล) เรียบร้อย', 'ok');
+    }
     Editor.renderWorkflow();
     Editor.recalcAndRender();
-    Utils.toast('อนุมัติขั้นตอนที่ 3 (บัญชีอนุมัติ + วางบิล) เรียบร้อย', 'ok');
   },
 
   undoAcctApproval(){
@@ -5011,6 +5235,16 @@ const Editor = {
 
   onTypeChange(){
     const newType = document.getElementById('doc-type-select').value;
+    // Defense in depth alongside the disabled <option> in populateForm() — blocks a
+    // preparer from switching a document to Invoice (they can only create/edit
+    // Quotations; Invoices are now auto-generated on accounting approval — see
+    // Documents.autoConvertOnAcctApproval). Revert the dropdown back to the draft's
+    // last real type rather than leaving it stuck on the rejected selection.
+    if(newType === 'INV' && Auth.role() === 'preparer'){
+      document.getElementById('doc-type-select').value = UI.editingDraft.type;
+      Utils.toast('ผู้จัดทำไม่มีสิทธิ์สร้างใบแจ้งหนี้โดยตรง (ใบแจ้งหนี้จะถูกสร้างอัตโนมัติเมื่อบัญชีอนุมัติใบเสนอราคา)', 'err');
+      return;
+    }
     UI.editingDraft.type = newType;
     // Only auto-regenerate the number if this document hasn't been saved yet under its current number,
     // or the number still matches the pattern of the other type (avoids clobbering a manually-set number).
@@ -5043,7 +5277,35 @@ const Editor = {
         Utils.toast('คุณไม่มีสิทธิ์แก้ไขเอกสารนี้ (ติดต่อ Admin เพื่อขอสิทธิ์ "แก้ไข")', 'err');
         return;
       }
+      // Hard guard behind the dropdown-level ones in populateForm()/onTypeChange() —
+      // covers any path that set UI.editingDraft.type to 'INV' without going through
+      // that dropdown. Preparer may only ever save Quotations.
+      if(UI.editingDraft.type === 'INV' && Auth.role() === 'preparer'){
+        Utils.toast('ผู้จัดทำไม่มีสิทธิ์สร้างหรือแก้ไขใบแจ้งหนี้โดยตรง (ใบแจ้งหนี้จะถูกสร้างอัตโนมัติเมื่อบัญชีอนุมัติใบเสนอราคา)', 'err');
+        return;
+      }
       const beforeDoc = wasEditingId ? Documents.find(wasEditingId) : null;
+      // A document flagged locked (currently only Invoices auto-generated the moment
+      // accounting approves their source Quotation — see
+      // Documents.autoConvertOnAcctApproval) is final and not meant to be changed by
+      // anyone anymore — it already reflects exactly what was approved. Admin is the
+      // one exception (same safety-valve every other lock in this app leaves open),
+      // in case a genuine correction is unavoidable. Checked before the preparer-only
+      // lock below since it's the stricter of the two.
+      if(beforeDoc && beforeDoc.locked && !Auth.isAdmin()){
+        Utils.toast('เอกสารนี้ถูกล็อก (สร้างอัตโนมัติจากใบเสนอราคาที่บัญชีอนุมัติแล้ว) ไม่สามารถแก้ไขได้ — ติดต่อ Admin หากจำเป็นต้องแก้ไข', 'err');
+        return;
+      }
+      // Once the "2. ผู้มีอำนาจอนุมัติ / Authorized Signature" step is approved, the
+      // preparer's job on this document is done — block further edits from that role
+      // so an already-approved document can't be silently changed afterward. Admin,
+      // accounting, and the authorized approver can still fix things if genuinely
+      // needed (e.g. accounting may still need to adjust something before their own
+      // step 3 approval) — this only locks out the preparer role specifically.
+      if(beforeDoc && beforeDoc.workflow && beforeDoc.workflow.authApproved && Auth.role() === 'preparer'){
+        Utils.toast('เอกสารนี้ผ่านการอนุมัติจากผู้มีอำนาจอนุมัติแล้ว ผู้จัดทำไม่สามารถแก้ไขได้อีก (ติดต่อ Admin หากจำเป็นต้องแก้ไข)', 'err');
+        return;
+      }
       const beforeSnapshot = beforeDoc ? Object.assign({}, beforeDoc) : null;
       const prevStatus = beforeDoc ? beforeDoc.status : null;
 
@@ -5382,6 +5644,10 @@ const Actions = {
   },
   convertDoc(id){
     if(!Auth.canDoc('create')){ Utils.toast('คุณไม่มีสิทธิ์สร้างเอกสารใหม่ (แปลงเป็นใบแจ้งหนี้ต้องมีสิทธิ์ "เพิ่ม")', 'err'); return; }
+    // Preparer cannot create Invoices through any path, manual conversion included —
+    // see the matching hidden button in Render.documentsList() and the dropdown
+    // guards in Editor.onTypeChange()/Editor.save().
+    if(Auth.role() === 'preparer'){ Utils.toast('ผู้จัดทำไม่มีสิทธิ์สร้างใบแจ้งหนี้ (ใบแจ้งหนี้จะถูกสร้างอัตโนมัติเมื่อบัญชีอนุมัติใบเสนอราคา)', 'err'); return; }
     const d = Documents.find(id);
     if(!d) return;
     Utils.confirmDialog('Convert to Invoice', `แปลง ${d.docNumber} เป็นใบแจ้งหนี้ใหม่หรือไม่? เอกสารใบเสนอราคาเดิมจะยังคงอยู่`, ()=>{
@@ -5790,32 +6056,50 @@ const ExportMod = {
   /** Renders `doc` into a temporary, off-screen container (moved way outside the
    *  viewport with a large negative `left`, NOT `visibility:hidden` and NOT
    *  `display:none`) using the exact same template as the print preview, then
-   *  rasterizes it into a PDF Blob via html2pdf.js. This is fully separate from
-   *  ExportMod.print()/printDoc() (which still uses the browser's native print
-   *  dialog, untouched) — it exists purely so a PDF snapshot can be produced and
-   *  uploaded automatically in the background, with no user interaction/dialog.
-   *  IMPORTANT: html2canvas (which html2pdf.js uses under the hood) renders a
-   *  literal blank/white page for anything styled `visibility:hidden` — the browser
-   *  never paints such elements at all, so there's nothing for html2canvas to
-   *  screenshot. Moving the container off-screen instead keeps it fully painted
-   *  (and therefore capturable) while still being invisible to the person using
-   *  the app, since it sits far outside the visible viewport. */
+   *  rasterizes it into a PDF Blob via html2canvas + jsPDF (driven directly — see the
+   *  note above the <script> tags for why this replaced html2pdf.js). This is fully
+   *  separate from ExportMod.print()/printDoc() (which still uses the browser's native
+   *  print dialog, untouched) — it exists purely so a PDF snapshot can be produced
+   *  in-memory, for either auto-upload-on-save or a direct "Save as PDF ลงเครื่อง"
+   *  download, with no print-dialog interaction.
+   *  IMPORTANT: html2canvas renders a literal blank/white page for anything styled
+   *  `visibility:hidden` — the browser never paints such elements at all, so there's
+   *  nothing for html2canvas to screenshot. Moving the container off-screen instead
+   *  keeps it fully painted (and therefore capturable) while still being invisible to
+   *  the person using the app, since it sits far outside the visible viewport.
+   *  Slices the canvas across multiple A4 pages if the document is taller than one
+   *  page (standard html2canvas+jsPDF technique: redraw the same full-height image on
+   *  each page, shifted up by one page-height each time — jsPDF clips to the page
+   *  bounds automatically, so only that page's slice actually shows). */
   async generateDocumentPdfBlob(doc){
-    if(typeof html2pdf === 'undefined'){
-      throw new Error('ไลบรารีสร้าง PDF (html2pdf.js) โหลดไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+    if(typeof window.html2canvas === 'undefined' || !window.jspdf){
+      throw new Error('ไลบรารีสร้าง PDF (html2canvas/jsPDF) โหลดไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
     }
     const holder = document.createElement('div');
     holder.style.cssText = 'position:fixed;top:0;left:-99999px;width:210mm;pointer-events:none;background:#fff;';
     holder.innerHTML = DocPreview.render(doc);
     document.body.appendChild(holder);
     try{
-      const blob = await html2pdf().set({
-        margin: 0,
-        filename: (doc.docNumber || 'document') + '.pdf',
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(holder).outputPdf('blob');
-      return blob;
+      const canvas = await window.html2canvas(holder, { scale: 2, useCORS: true });
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      const pageWidthMm = pdf.internal.pageSize.getWidth();
+      const pageHeightMm = pdf.internal.pageSize.getHeight();
+      const imgWidthMm = pageWidthMm;
+      const imgHeightMm = (canvas.height * imgWidthMm) / canvas.width;
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+      let heightLeftMm = imgHeightMm;
+      let positionMm = 0;
+      pdf.addImage(imgData, 'JPEG', 0, positionMm, imgWidthMm, imgHeightMm);
+      heightLeftMm -= pageHeightMm;
+      while(heightLeftMm > 0){
+        positionMm = heightLeftMm - imgHeightMm; // negative offset shifts the same image up so the next page's slice lines up
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, positionMm, imgWidthMm, imgHeightMm);
+        heightLeftMm -= pageHeightMm;
+      }
+      return pdf.output('blob');
     } finally {
       document.body.removeChild(holder);
     }
@@ -5835,6 +6119,32 @@ const ExportMod = {
     }catch(err){
       console.error('Auto PDF save to Supabase failed', err);
       Utils.toast('บันทึก PDF อัตโนมัติไม่สำเร็จ (ตัวเอกสารเองบันทึกเรียบร้อยแล้ว)', 'err');
+    }
+  },
+
+  /** Downloads the currently-open document as a real PDF file straight to the
+   *  person's computer via the browser's normal download flow — separate from
+   *  ExportMod.print(), which opens the browser's native print dialog and requires
+   *  manually picking "Save as PDF" as the destination. Reuses the exact same
+   *  html2pdf render path as the auto-cloud-save snapshot
+   *  (ExportMod.generateDocumentPdfBlob) so the output matches the print preview
+   *  exactly, then triggers a direct file download via Utils.downloadBlob (browser
+   *  either saves straight to Downloads or shows its own native Save-As dialog,
+   *  depending on that browser's own download settings). */
+  async saveDocPdfToComputer(){
+    Editor.syncFormIntoDraft();
+    const doc = UI.editingDraft;
+    const busyEl = Utils.toast('กำลังสร้างไฟล์ PDF...', 'busy');
+    try{
+      const blob = await ExportMod.generateDocumentPdfBlob(doc);
+      Utils.downloadBlob(blob, `${doc.docNumber || 'document'}.pdf`);
+      Utils.toast('บันทึกไฟล์ PDF ลงเครื่องสำเร็จ', 'ok');
+      ActivityLog.log('Save PDF ลงเครื่อง', doc.type === 'INV' ? 'Invoice' : 'Quotation', { recordId: doc.id, recordName: doc.docNumber });
+    }catch(err){
+      console.error('Save PDF to computer failed', err);
+      Utils.toast(err.message || 'สร้างไฟล์ PDF ไม่สำเร็จ', 'err');
+    } finally {
+      if(busyEl && busyEl.parentNode) busyEl.remove();
     }
   },
 
@@ -5984,16 +6294,11 @@ const Reports = {
   currentTab: 'sales',
   _rows: {}, // key -> 2D array [header, ...dataRows], shared by every report's CSV/Excel/PDF export (spec 12)
   TITLES: {
-    sales:'Sales Summary Report / รายงานยอดขายรวม',
-    quotation:'Quotation Report / รายงานใบเสนอราคา',
-    invoice:'Invoice Report / รายงานใบแจ้งหนี้',
-    outstanding:'Outstanding Report / รายงานลูกหนี้ค้างชำระ',
-    vat:'VAT Report / รายงานภาษีมูลค่าเพิ่ม',
-    wht:'WHT Report / รายงานภาษีหัก ณ ที่จ่าย',
-    customer:'Customer Report / รายงานลูกค้า',
-    product:'Product & Service Report / รายงานสินค้า-บริการ',
-    mgmtfee:'Management Fee Report / รายงาน Management Fee',
+    sales:'Sales Overview / ภาพรวมยอดขาย',
+    outstanding:'Outstanding Report / รายงานลูกหนี้และยอดค้างชำระ',
     docstatus:'Document Status Report / รายงานสถานะเอกสาร',
+    tax:'Tax Report / รายงานภาษี (VAT + WHT)',
+    custprod:'Customer & Product Report / รายงานลูกค้าและสินค้า-บริการ',
     monthly:'Monthly Performance Report / รายงานสรุปรายเดือน'
   },
 
@@ -6002,8 +6307,8 @@ const Reports = {
     // default date ranges (current month) for every date-range filter pair, without
     // clobbering a range the user already picked earlier in this session
     const monthStart = ()=>{ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-01'; };
-    [['rpt-sales-from','rpt-sales-to'],['rpt-qt-from','rpt-qt-to'],['rpt-inv-from','rpt-inv-to'],
-     ['rpt-vat-from','rpt-vat-to'],['rpt-wht-from','rpt-wht-to'],['rpt-mgmtfee-from','rpt-mgmtfee-to']
+    [['rpt-sales-from','rpt-sales-to'],['rpt-outstanding-from','rpt-outstanding-to'],
+     ['rpt-docstatus-from','rpt-docstatus-to'],['rpt-tax-from','rpt-tax-to'],['rpt-cp-from','rpt-cp-to']
     ].forEach(([fromId,toId])=>{
       const fromEl = document.getElementById(fromId), toEl = document.getElementById(toId);
       if(fromEl && !fromEl.value) fromEl.value = monthStart();
@@ -6014,6 +6319,7 @@ const Reports = {
       const n = new Date();
       monthEl.value = n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
     }
+    Reports.populateFilterSelects();
     Reports.populateCustomerHistorySelect();
     Reports.switchTab(Reports.currentTab || 'sales');
   },
@@ -6026,16 +6332,17 @@ const Reports = {
     document.querySelectorAll('.report-panel').forEach(p=>{
       p.classList.toggle('active', p.id === 'report-panel-'+key);
     });
+    Reports.populateFilterSelects(); // pick up any customer/creator added since the last render
     Reports.render(key);
   },
 
   render(key){
     const fn = {
-      sales: Reports.renderSalesReport, quotation: Reports.renderQuotationReport,
-      invoice: Reports.renderInvoiceReport, outstanding: Reports.renderARDetail,
-      vat: Reports.renderVATReport, wht: Reports.renderWHTReport,
-      customer: Reports.renderCustomerReport, product: Reports.renderProductReport,
-      mgmtfee: Reports.renderMgmtFeeReport, docstatus: Reports.renderDocStatusReport,
+      sales: Reports.renderSalesReport,
+      outstanding: Reports.renderOutstandingReport,
+      docstatus: Reports.renderDocStatusReport,
+      tax: Reports.renderTaxReport,
+      custprod: Reports.renderCustProdReport,
       monthly: Reports.renderMonthlyReport
     }[key];
     if(fn) fn();
@@ -6049,26 +6356,169 @@ const Reports = {
       </div>`).join('');
   },
 
-  /* ---------------------------- 1. SALES SUMMARY REPORT ---------------------------- */
-  renderSalesReport(){
-    const from = document.getElementById('rpt-sales-from').value;
-    const to = document.getElementById('rpt-sales-to').value;
-    const type = document.getElementById('rpt-sales-type').value;
-    const groupBy = document.getElementById('rpt-sales-groupby').value;
+  /* ---------------------------- SHARED FILTER ENGINE ---------------------------- */
+  /** Safe .value getter — every filter read in this module goes through this so a
+   *  missing element (e.g. a filter that doesn't exist on a given panel) never throws. */
+  _v(id){
+    const el = document.getElementById(id);
+    return el ? el.value : '';
+  },
 
-    const docs = Documents.list().filter(d=>{
-      if(type && d.type !== type) return false;
+  /** Shared filter engine used by every one of the 6 consolidated reports (spec:
+   *  "ทุกหน้าต้องเลือกช่วงวันที่ได้ / Filter ตามประเภทเอกสาร ลูกค้า สถานะ และผู้สร้างได้").
+   *  `p` is the filter-bar id prefix (e.g. 'rpt-sales' reads #rpt-sales-from etc).
+   *  `overrides.from`/`overrides.to` (including '' to mean "no bound") let a caller
+   *  bypass the DOM date inputs — used by (1) every trailing-6-month chart, which
+   *  always looks back from today regardless of the table's date range, and
+   *  (2) the Monthly tab, whose date range is derived from its month-picker rather
+   *  than a pair of date inputs.
+   *  Note on "ผู้สร้าง" (creator): a document has no user-account/owner field — the
+   *  closest per-document "who made this" field in the data model is preparedByName
+   *  (ผู้จัดทำ, see Documents.blankDocument), so the creator filter matches against it. */
+  _filterDocs(sourceDocs, p, overrides){
+    overrides = overrides || {};
+    const from = overrides.from !== undefined ? overrides.from : Reports._v(p+'-from');
+    const to = overrides.to !== undefined ? overrides.to : Reports._v(p+'-to');
+    const type = Reports._v(p+'-type');
+    const custId = Reports._v(p+'-customer');
+    const status = Reports._v(p+'-status');
+    const creator = Reports._v(p+'-creator');
+    return sourceDocs.filter(d=>{
       if(from && (d.date||'') < from) return false;
       if(to && (d.date||'') > to) return false;
+      if(type && d.type !== type) return false;
+      if(custId && d.customerId !== custId) return false;
+      if(status && d.status !== status) return false;
+      if(creator && (d.preparedByName||'') !== creator) return false;
       return true;
     });
+  },
+
+  _creatorOptions(){
+    const names = new Set();
+    DB.documents.forEach(d=>{ if(d.preparedByName && d.preparedByName.trim()) names.add(d.preparedByName.trim()); });
+    return Array.from(names).sort((a,b)=> a.localeCompare(b,'th'));
+  },
+
+  /** Keeps every report panel's ลูกค้า / ผู้สร้าง <select> populated, without
+   *  clobbering whatever the user already picked (same staleness-guard pattern as
+   *  #filter-customer in Render.documentsList — see dataset.count). */
+  populateFilterSelects(){
+    const prefixes = ['rpt-sales','rpt-outstanding','rpt-docstatus','rpt-tax','rpt-cp','rpt-monthly'];
+    const creators = Reports._creatorOptions();
+    prefixes.forEach(p=>{
+      const custSel = document.getElementById(p+'-customer');
+      if(custSel && custSel.dataset.count != DB.customers.length){
+        const cur = custSel.value;
+        custSel.innerHTML = '<option value="">ทุกลูกค้า</option>' + Customers.list().map(c=>
+          `<option value="${c.id}">${Utils.escapeHtml(c.name)}</option>`).join('');
+        custSel.value = cur;
+        custSel.dataset.count = DB.customers.length;
+      }
+      const creatorSel = document.getElementById(p+'-creator');
+      if(creatorSel && creatorSel.dataset.count != DB.documents.length){
+        const cur = creatorSel.value;
+        creatorSel.innerHTML = '<option value="">ทุกคน</option>' + creators.map(n=>
+          `<option value="${Utils.escapeHtml(n)}">${Utils.escapeHtml(n)}</option>`).join('');
+        creatorSel.value = cur;
+        creatorSel.dataset.count = DB.documents.length;
+      }
+    });
+  },
+
+  /** Simple CSS/JS bar chart — no external chart library (same pattern already used
+   *  at Dashboard's #dashboard-bar-chart). Buckets `docs` by month of d.date and sums
+   *  valueFn(d) per month, for `months` trailing months ending at `endMonthKey`
+   *  (defaults to the current real month). */
+  _renderMonthlyChart(containerId, docs, valueFn, endMonthKey, months){
+    const el = document.getElementById(containerId);
+    if(!el) return;
+    months = months || 6;
+    let endYear, endMonth;
+    if(endMonthKey){
+      const parts = endMonthKey.split('-');
+      endYear = parseInt(parts[0],10); endMonth = parseInt(parts[1],10);
+    }else{
+      const n = new Date();
+      endYear = n.getFullYear(); endMonth = n.getMonth()+1;
+    }
+    const monthList = [];
+    for(let i=months-1;i>=0;i--){
+      const d = new Date(endYear, (endMonth-1)-i, 1);
+      monthList.push({ key: d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'), label:(d.getMonth()+1)+'/'+String(d.getFullYear()).slice(2) });
+    }
+    const totals = monthList.map(m=>{
+      const sum = docs.filter(d=>(d.date||'').startsWith(m.key)).reduce((s,d)=> s + valueFn(d), 0);
+      return { ...m, sum };
+    });
+    const maxVal = Math.max(1, ...totals.map(m=>m.sum));
+    el.innerHTML = totals.map(m=>{
+      const h = Math.max(4, Math.round((m.sum/maxVal)*130));
+      return `<div class="bar-col">
+        <div class="bar-value">${m.sum>0?Utils.formatMoney(m.sum):''}</div>
+        <div class="bar" style="height:${h}px;"></div>
+        <div class="bar-label">${m.label}</div>
+      </div>`;
+    }).join('');
+  },
+
+  /* ---------------------------- 1. SALES OVERVIEW (รวม QT + INV) ---------------------------- */
+  renderSalesReport(){
+    const p = 'rpt-sales';
+    const groupBy = Reports._v(p+'-groupby') || 'month';
+    const docs = Reports._filterDocs(Documents.list(), p);
+    const chartDocs = Reports._filterDocs(Documents.list(), p, { from:'', to:'' });
+
+    const totalCount = docs.length;
+    const totalAmount = docs.reduce((s,d)=> s + Calc.computeTotals(d).grandTotal, 0);
+    const qtCount = docs.filter(d=>d.type==='QT').length;
+    const invCount = docs.filter(d=>d.type==='INV').length;
+    const convertedCount = docs.filter(d=>d.type==='QT' && d.convertedToId).length;
+    const conversionRate = qtCount ? Utils.round2((convertedCount/qtCount)*100) : 0;
+    const paidTotal = docs.filter(d=>d.type==='INV' && d.status==='Paid').reduce((s,d)=> s + Calc.computeTotals(d).grandTotal, 0);
+    const outstandingTotal = docs.filter(d=>d.type==='INV' && d.status!=='Paid' && d.status!=='Cancelled').reduce((s,d)=> s + Calc.remainingBalance(d), 0);
+    const overdueCount = docs.filter(d=>d.type==='INV' && d.status==='Overdue').length;
+
+    document.getElementById('sales-kpi-grid').innerHTML = Reports._kpiHtml([
+      { label:'เอกสารทั้งหมด', value: totalCount },
+      { label:'ยอดขายรวม', value: Utils.formatCurrency(totalAmount), accent:'green' },
+      { label:'ใบเสนอราคา', value: qtCount },
+      { label:'ใบแจ้งหนี้', value: invCount },
+      { label:'Conversion Rate (QT→INV)', value: conversionRate + '%', accent:'amber' },
+      { label:'ยอดชำระแล้ว', value: Utils.formatCurrency(paidTotal), accent:'green' },
+      { label:'ยอดค้างชำระ', value: Utils.formatCurrency(outstandingTotal), accent:'red' },
+      { label:'ใบแจ้งหนี้เกินกำหนด', value: overdueCount, accent:'red' }
+    ]);
+
+    Reports._renderMonthlyChart('sales-chart', chartDocs, d=> Calc.computeTotals(d).grandTotal);
 
     const theadRow = document.getElementById('sales-report-thead-row');
     const tbody = document.querySelector('#sales-report-table tbody');
     const emptyEl = document.getElementById('sales-report-empty');
     let groupCount, exportRows;
 
-    if(groupBy === 'product'){
+    if(groupBy === 'document'){
+      theadRow.innerHTML = `<th>เลขที่</th><th>ประเภท</th><th>วันที่</th><th>ลูกค้า</th><th class="text-right">Grand Total</th><th class="text-right">ยอดคงเหลือ</th><th>Convert แล้ว</th><th>สถานะ</th>`;
+      tbody.innerHTML = docs.map(d=>{
+        const t = Calc.computeTotals(d);
+        const remaining = d.type==='INV' ? Utils.formatCurrency(Calc.remainingBalance(d)) : '<span class="muted">-</span>';
+        const converted = d.type==='QT' ? (d.convertedToId?'✓':'-') : '<span class="muted">-</span>';
+        return `<tr>
+          <td class="nowrap">${Utils.escapeHtml(d.docNumber)}</td>
+          <td>${d.type==='INV' ? 'ใบแจ้งหนี้' : 'ใบเสนอราคา'}</td>
+          <td class="nowrap">${Utils.formatDateThai(d.date)}</td>
+          <td>${Utils.escapeHtml((d.customer&&d.customer.name)||'')}</td>
+          <td class="text-right">${Utils.formatCurrency(t.grandTotal)}</td>
+          <td class="text-right">${remaining}</td>
+          <td class="text-center">${converted}</td>
+          <td>${Render.badgeHtml(d.status)}</td>
+        </tr>`;
+      }).join('');
+      groupCount = docs.length;
+      exportRows = [['เลขที่','ประเภท','วันที่','ลูกค้า','Grand Total','ยอดคงเหลือ','Convert แล้ว','สถานะ']]
+        .concat(docs.map(d=>{ const t=Calc.computeTotals(d); return [d.docNumber, d.type, d.date, (d.customer&&d.customer.name)||'', t.grandTotal, d.type==='INV'?Calc.remainingBalance(d):'', d.type==='QT'?(d.convertedToId?'Yes':'No'):'', d.status]; }));
+
+    }else if(groupBy === 'product'){
       const byProduct = {};
       docs.forEach(d=>{
         (d.items||[]).forEach(it=>{
@@ -6156,125 +6606,16 @@ const Reports = {
     return `${m}/${y}`;
   },
 
-  /* ---------------------------- 2. QUOTATION REPORT ---------------------------- */
-  renderQuotationReport(){
-    const from = document.getElementById('rpt-qt-from').value;
-    const to = document.getElementById('rpt-qt-to').value;
-    const docs = Documents.list().filter(d=>{
-      if(d.type !== 'QT') return false;
-      if(from && (d.date||'') < from) return false;
-      if(to && (d.date||'') > to) return false;
-      return true;
-    });
-
-    const total = docs.length;
-    const totalAmount = docs.reduce((s,d)=> s + Calc.computeTotals(d).grandTotal, 0);
-    const draftCount = docs.filter(d=>d.status==='Draft').length;
-    const sentCount = docs.filter(d=>d.status==='Sent').length;
-    const approvedCount = docs.filter(d=>d.status==='Approved').length;
-    const rejectedCount = docs.filter(d=>d.status==='Rejected').length;
-    const convertedCount = docs.filter(d=>d.convertedToId).length;
-    const conversionRate = total ? Utils.round2((convertedCount/total)*100) : 0;
-
-    document.getElementById('quotation-kpi-grid').innerHTML = Reports._kpiHtml([
-      { label:'ใบเสนอราคาทั้งหมด', value: total },
-      { label:'ยอดรวมใบเสนอราคา', value: Utils.formatCurrency(totalAmount), accent:'green' },
-      { label:'Draft', value: draftCount },
-      { label:'Sent', value: sentCount },
-      { label:'Approved', value: approvedCount, accent:'green' },
-      { label:'Rejected', value: rejectedCount, accent:'red' },
-      { label:'Convert เป็น Invoice แล้ว', value: convertedCount },
-      { label:'Conversion Rate', value: conversionRate + '%', accent:'amber' }
-    ]);
-
-    const tbody = document.querySelector('#quotation-report-table tbody');
-    document.getElementById('quotation-report-empty').style.display = docs.length ? 'none' : 'block';
-    tbody.innerHTML = docs.map(d=>{
-      const t = Calc.computeTotals(d);
-      return `<tr>
-        <td class="nowrap">${Utils.escapeHtml(d.docNumber)}</td>
-        <td class="nowrap">${Utils.formatDateThai(d.date)}</td>
-        <td>${Utils.escapeHtml((d.customer&&d.customer.name)||'')}</td>
-        <td>${Utils.escapeHtml(d.project||'-')}</td>
-        <td class="text-right">${Utils.formatCurrency(t.grandTotal)}</td>
-        <td>${Render.badgeHtml(d.status)}</td>
-        <td class="text-center">${d.convertedToId ? '✓' : '-'}</td>
-      </tr>`;
-    }).join('');
-
-    Reports._rows.quotation = [
-      ['เลขที่','วันที่','ลูกค้า','Project','Grand Total','สถานะ','Convert แล้ว'],
-      ...docs.map(d=>{ const t=Calc.computeTotals(d); return [d.docNumber, d.date, (d.customer&&d.customer.name)||'', d.project||'', t.grandTotal, d.status, d.convertedToId?'Yes':'No']; }),
-      [],
-      ['สรุป'],
-      ['ใบเสนอราคาทั้งหมด', total],
-      ['ยอดรวมใบเสนอราคา', totalAmount],
-      ['Draft', draftCount], ['Sent', sentCount], ['Approved', approvedCount], ['Rejected', rejectedCount],
-      ['Convert เป็น Invoice แล้ว', convertedCount],
-      ['Conversion Rate (%)', conversionRate]
-    ];
-  },
-
-  /* ---------------------------- 3. INVOICE REPORT ---------------------------- */
-  renderInvoiceReport(){
-    const from = document.getElementById('rpt-inv-from').value;
-    const to = document.getElementById('rpt-inv-to').value;
-    const docs = Documents.list().filter(d=>{
-      if(d.type !== 'INV') return false;
-      if(from && (d.date||'') < from) return false;
-      if(to && (d.date||'') > to) return false;
-      return true;
-    });
-
-    const today = Utils.todayISO();
-    const total = docs.length;
-    const totalAmount = docs.reduce((s,d)=> s + Calc.computeTotals(d).grandTotal, 0);
-    const paidCount = docs.filter(d=>d.status==='Paid').length;
-    const unpaidCount = docs.filter(d=> d.status!=='Paid' && d.status!=='Cancelled').length;
-    const overdueCount = docs.filter(d=> d.status==='Overdue' || (d.status!=='Paid' && d.status!=='Cancelled' && d.dueDate && d.dueDate < today)).length;
-    const outstandingTotal = docs.filter(d=> d.status!=='Paid' && d.status!=='Cancelled').reduce((s,d)=> s + Calc.remainingBalance(d), 0);
-
-    document.getElementById('invoice-kpi-grid').innerHTML = Reports._kpiHtml([
-      { label:'Invoice ทั้งหมด', value: total },
-      { label:'ยอด Invoice ทั้งหมด', value: Utils.formatCurrency(totalAmount), accent:'green' },
-      { label:'ชำระแล้ว (Paid)', value: paidCount, accent:'green' },
-      { label:'ยังไม่ชำระ', value: unpaidCount, accent:'amber' },
-      { label:'เกินกำหนด (Overdue)', value: overdueCount, accent:'red' },
-      { label:'ยอดค้างชำระรวม', value: Utils.formatCurrency(outstandingTotal), accent:'red' }
-    ]);
-
-    const tbody = document.querySelector('#invoice-report-table tbody');
-    document.getElementById('invoice-report-empty').style.display = docs.length ? 'none' : 'block';
-    tbody.innerHTML = docs.map(d=>{
-      const t = Calc.computeTotals(d);
-      const remaining = Calc.remainingBalance(d);
-      return `<tr>
-        <td class="nowrap">${Utils.escapeHtml(d.docNumber)}</td>
-        <td class="nowrap">${Utils.formatDateThai(d.date)}</td>
-        <td>${Utils.escapeHtml((d.customer&&d.customer.name)||'')}</td>
-        <td class="text-right">${Utils.formatCurrency(t.grandTotal)}</td>
-        <td class="text-right">${Utils.formatCurrency(remaining)}</td>
-        <td>${Render.badgeHtml(d.status)}</td>
-      </tr>`;
-    }).join('');
-
-    Reports._rows.invoice = [
-      ['เลขที่','วันที่','ลูกค้า','Grand Total','ยอดคงเหลือ','สถานะ'],
-      ...docs.map(d=>{ const t=Calc.computeTotals(d); return [d.docNumber, d.date, (d.customer&&d.customer.name)||'', t.grandTotal, Calc.remainingBalance(d), d.status]; }),
-      [],
-      ['สรุป'],
-      ['Invoice ทั้งหมด', total], ['ยอด Invoice ทั้งหมด', totalAmount],
-      ['ชำระแล้ว', paidCount], ['ยังไม่ชำระ', unpaidCount], ['เกินกำหนด', overdueCount],
-      ['ยอดค้างชำระรวม', outstandingTotal]
-    ];
-  },
-
-  /* ---------------------------- 4. OUTSTANDING REPORT (AR Detail) ---------------------------- */
-  renderARDetail(){
+  /* ---------------------------- 2. OUTSTANDING — ลูกหนี้และยอดค้างชำระ ---------------------------- */
+  renderOutstandingReport(){
+    const p = 'rpt-outstanding';
     const today = new Date(Utils.todayISO() + 'T00:00:00');
+    const invBase = DB.documents.filter(d=> d.type==='INV' && d.status!=='Cancelled');
+    const baseDocs = Reports._filterDocs(invBase, p);
+    const chartDocs = Reports._filterDocs(invBase, p, { from:'', to:'' });
+
     const rows = [];
-    DB.documents.forEach(d=>{
-      if(d.type !== 'INV' || d.status === 'Cancelled') return;
+    baseDocs.forEach(d=>{
       const remaining = Calc.remainingBalance(d);
       if(remaining <= 0.004) return;
       let daysOverdue = null;
@@ -6285,6 +6626,23 @@ const Reports = {
       rows.push({ doc:d, daysOverdue, remaining });
     });
     rows.sort((a,b)=> (b.daysOverdue===null?-9999:b.daysOverdue) - (a.daysOverdue===null?-9999:a.daysOverdue));
+
+    const totalOutstanding = rows.reduce((s,r)=> s+r.remaining, 0);
+    const overdueRows = rows.filter(r=> (r.daysOverdue||0) > 0);
+    const overdueTotal = overdueRows.reduce((s,r)=> s+r.remaining, 0);
+    const over90Rows = rows.filter(r=> (r.daysOverdue||0) > 90);
+    const over90Total = over90Rows.reduce((s,r)=> s+r.remaining, 0);
+
+    document.getElementById('outstanding-kpi-grid').innerHTML = Reports._kpiHtml([
+      { label:'ยอดค้างชำระรวม', value: Utils.formatCurrency(totalOutstanding), accent:'red' },
+      { label:'จำนวน Invoice ค้างชำระ', value: rows.length },
+      { label:'เกินกำหนดชำระ', value: overdueRows.length, accent:'amber' },
+      { label:'ยอดเกินกำหนดชำระ', value: Utils.formatCurrency(overdueTotal), accent:'amber' },
+      { label:'ค้างชำระเกิน 90 วัน', value: over90Rows.length, accent:'red' },
+      { label:'ยอดค้างชำระเกิน 90 วัน', value: Utils.formatCurrency(over90Total), accent:'red' }
+    ]);
+
+    Reports._renderMonthlyChart('outstanding-chart', chartDocs, d=> Calc.remainingBalance(d));
 
     const tbody = document.querySelector('#ar-detail-table tbody');
     document.getElementById('ar-detail-empty').style.display = rows.length ? 'none' : 'block';
@@ -6303,212 +6661,51 @@ const Reports = {
       </tr>`;
     }).join('');
 
+    // AR aging bucket summary by customer (ตารางรายละเอียดเสริม)
+    const byCustomer = {};
+    rows.forEach(r=>{
+      const name = (r.doc.customer && r.doc.customer.name) || '(ไม่ระบุลูกค้า)';
+      if(!byCustomer[name]) byCustomer[name] = { current:0, b1_30:0, b31_60:0, b61_90:0, b90:0, total:0 };
+      const b = byCustomer[name];
+      const dOver = r.daysOverdue;
+      if(dOver===null || dOver<=0) b.current += r.remaining;
+      else if(dOver<=30) b.b1_30 += r.remaining;
+      else if(dOver<=60) b.b31_60 += r.remaining;
+      else if(dOver<=90) b.b61_90 += r.remaining;
+      else b.b90 += r.remaining;
+      b.total += r.remaining;
+    });
+    const custNames = Object.keys(byCustomer).sort((a,b)=> byCustomer[b].total-byCustomer[a].total);
+    const agingTbody = document.querySelector('#outstanding-aging-table tbody');
+    document.getElementById('outstanding-aging-empty').style.display = custNames.length ? 'none' : 'block';
+    agingTbody.innerHTML = custNames.map(name=>{
+      const b = byCustomer[name];
+      const cell = (v)=> v>0.004 ? Utils.formatCurrency(v) : '<span class="muted">-</span>';
+      return `<tr>
+        <td>${Utils.escapeHtml(name)}</td>
+        <td class="text-right">${cell(b.current)}</td>
+        <td class="text-right">${cell(b.b1_30)}</td>
+        <td class="text-right">${cell(b.b31_60)}</td>
+        <td class="text-right" style="${b.b61_90>0.004?'color:var(--amber);font-weight:700;':''}">${cell(b.b61_90)}</td>
+        <td class="text-right" style="${b.b90>0.004?'color:var(--red);font-weight:700;':''}">${cell(b.b90)}</td>
+        <td class="text-right" style="font-weight:800;">${Utils.formatCurrency(b.total)}</td>
+      </tr>`;
+    }).join('');
+
     Reports._rows.outstanding = [
       ['ลูกค้า','เลข Invoice','วันที่ออกเอกสาร','วันครบกำหนด','เกินกำหนด (วัน)','ยอดค้างชำระ','สถานะ']
     ].concat(rows.map(r=> [
       (r.doc.customer&&r.doc.customer.name)||'', r.doc.docNumber, r.doc.date||'', r.doc.dueDate||'',
       r.daysOverdue===null?'':r.daysOverdue, r.remaining, r.doc.status
-    ]));
+    ])).concat([[], ['ยอดค้างชำระรวมทั้งหมด', totalOutstanding]]);
   },
 
-  /* ---------------------------- 5. VAT REPORT ---------------------------- */
-  renderVATReport(){
-    const from = document.getElementById('rpt-vat-from').value;
-    const to = document.getElementById('rpt-vat-to').value;
-    const docs = Documents.list().filter(d=>{
-      if(!d.vatEnabled) return false;
-      if(from && (d.date||'') < from) return false;
-      if(to && (d.date||'') > to) return false;
-      return true;
-    });
-
-    const tbody = document.querySelector('#vat-report-table tbody');
-    document.getElementById('vat-report-empty').style.display = docs.length ? 'none' : 'block';
-    tbody.innerHTML = docs.map(d=>{
-      const t = Calc.computeTotals(d);
-      return `<tr>
-        <td class="nowrap">${Utils.escapeHtml(d.docNumber)}</td>
-        <td class="nowrap">${Utils.formatDateThai(d.date)}</td>
-        <td>${Utils.escapeHtml((d.customer&&d.customer.name)||'')}</td>
-        <td>${Utils.escapeHtml((d.customer&&d.customer.taxId)||'-')}</td>
-        <td class="text-right">${Utils.formatMoney(t.taxBase)}</td>
-        <td class="text-right">${Utils.formatMoney(t.vat)}</td>
-        <td class="text-right" style="font-weight:700;">${Utils.formatCurrency(t.grandTotal)}</td>
-      </tr>`;
-    }).join('');
-
-    const vatTotal = docs.reduce((s,d)=> s + Calc.computeTotals(d).vat, 0);
-    Reports._rows.vat = [
-      ['เลขเอกสาร','วันที่','ลูกค้า','Tax ID','Tax Base','VAT','Grand Total']
-    ].concat(docs.map(d=>{ const t=Calc.computeTotals(d); return [d.docNumber, d.date, (d.customer&&d.customer.name)||'', (d.customer&&d.customer.taxId)||'', t.taxBase, t.vat, t.grandTotal]; }))
-     .concat([[], ['VAT รวมทั้งหมด', vatTotal]]);
-  },
-
-  /* ---------------------------- 6. WHT REPORT ---------------------------- */
-  renderWHTReport(){
-    const from = document.getElementById('rpt-wht-from').value;
-    const to = document.getElementById('rpt-wht-to').value;
-    const docs = Documents.list().filter(d=>{
-      if(!d.whtEnabled) return false;
-      if(from && (d.date||'') < from) return false;
-      if(to && (d.date||'') > to) return false;
-      return true;
-    });
-
-    const tbody = document.querySelector('#wht-report-table tbody');
-    document.getElementById('wht-report-empty').style.display = docs.length ? 'none' : 'block';
-    tbody.innerHTML = docs.map(d=>{
-      const t = Calc.computeTotals(d);
-      return `<tr>
-        <td class="nowrap">${Utils.escapeHtml(d.docNumber)}</td>
-        <td class="nowrap">${Utils.formatDateThai(d.date)}</td>
-        <td>${Utils.escapeHtml((d.customer&&d.customer.name)||'')}</td>
-        <td>${Utils.escapeHtml((d.customer&&d.customer.taxId)||'-')}</td>
-        <td class="text-right">${Utils.formatMoney(t.taxBase)}</td>
-        <td class="text-right">${Utils.num(d.whtPct)}%</td>
-        <td class="text-right">${Utils.formatMoney(t.wht)}</td>
-        <td class="text-right" style="font-weight:700;">${Utils.formatCurrency(t.netPayable)}</td>
-      </tr>`;
-    }).join('');
-
-    const whtTotal = docs.reduce((s,d)=> s + Calc.computeTotals(d).wht, 0);
-    Reports._rows.wht = [
-      ['เลขเอกสาร','วันที่','ลูกค้า','Tax ID','Tax Base','WHT %','WHT Amount','Net Payable']
-    ].concat(docs.map(d=>{ const t=Calc.computeTotals(d); return [d.docNumber, d.date, (d.customer&&d.customer.name)||'', (d.customer&&d.customer.taxId)||'', t.taxBase, Utils.num(d.whtPct), t.wht, t.netPayable]; }))
-     .concat([[], ['WHT รวมทั้งหมด', whtTotal]]);
-  },
-
-  /* ---------------------------- 7. CUSTOMER REPORT ---------------------------- */
-  renderCustomerReport(){
-    const byCust = {};
-    DB.documents.forEach(d=>{
-      const name = (d.customer && d.customer.name) || '(ไม่ระบุลูกค้า)';
-      if(!byCust[name]) byCust[name] = { count:0, sales:0, outstanding:0 };
-      byCust[name].count += 1;
-      byCust[name].sales += Calc.computeTotals(d).grandTotal;
-      if(d.type==='INV' && d.status!=='Paid' && d.status!=='Cancelled'){
-        byCust[name].outstanding += Calc.remainingBalance(d);
-      }
-    });
-    const names = Object.keys(byCust).sort((a,b)=> byCust[b].sales - byCust[a].sales);
-    const topName = names[0];
-
-    const tbody = document.querySelector('#customer-report-table tbody');
-    document.getElementById('customer-report-empty').style.display = names.length ? 'none' : 'block';
-    tbody.innerHTML = names.map(name=>{
-      const c = byCust[name];
-      const notes = [];
-      if(name === topName && c.sales > 0) notes.push('<span class="badge badge-approved">ยอดสูงสุด</span>');
-      if(c.outstanding > 0.004) notes.push('<span class="badge badge-overdue">ค้างชำระ</span>');
-      return `<tr>
-        <td>${Utils.escapeHtml(name)}</td>
-        <td class="text-right">${c.count}</td>
-        <td class="text-right" style="font-weight:700;">${Utils.formatCurrency(c.sales)}</td>
-        <td class="text-right">${c.outstanding>0.004 ? Utils.formatCurrency(c.outstanding) : '-'}</td>
-        <td>${notes.join(' ') || '-'}</td>
-      </tr>`;
-    }).join('');
-
-    Reports._rows.customer = [
-      ['ลูกค้า','จำนวนเอกสาร','ยอดขายรวม','ยอดค้างชำระ','ลูกค้ายอดสูงสุด']
-    ].concat(names.map(name=> [name, byCust[name].count, byCust[name].sales, byCust[name].outstanding, name===topName?'Yes':'']));
-  },
-
-  populateCustomerHistorySelect(){
-    const sel = document.getElementById('rpt-customer-history-select');
-    if(!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">-- เลือกลูกค้า --</option>' + Customers.list().map(c=>
-      `<option value="${c.id}">${Utils.escapeHtml(c.name)}</option>`).join('');
-    if(cur) sel.value = cur;
-  },
-
-  renderCustomerHistory(){
-    const custId = document.getElementById('rpt-customer-history-select').value;
-    const tbody = document.querySelector('#customer-history-table tbody');
-    const emptyEl = document.getElementById('customer-history-empty');
-    if(!custId){ tbody.innerHTML=''; emptyEl.style.display='block'; emptyEl.textContent='เลือกลูกค้าเพื่อดูประวัติเอกสาร'; return; }
-    const docs = Documents.list().filter(d=> d.customerId === custId);
-    emptyEl.style.display = docs.length ? 'none' : 'block';
-    emptyEl.textContent = 'ลูกค้ารายนี้ยังไม่มีเอกสาร';
-    tbody.innerHTML = docs.map(d=>{
-      const t = Calc.computeTotals(d);
-      return `<tr>
-        <td class="nowrap">${Utils.escapeHtml(d.docNumber)}</td>
-        <td>${d.type}</td>
-        <td class="nowrap">${Utils.formatDateThai(d.date)}</td>
-        <td class="text-right">${Utils.formatCurrency(t.grandTotal)}</td>
-        <td>${Render.badgeHtml(d.status)}</td>
-      </tr>`;
-    }).join('');
-  },
-
-  /* ---------------------------- 8. PRODUCT / SERVICE REPORT ---------------------------- */
-  renderProductReport(){
-    const sortKey = document.getElementById('rpt-product-sort').value;
-    const byProduct = {};
-    DB.documents.forEach(d=>{
-      (d.items||[]).forEach(it=>{
-        const name = it.description || '(ไม่ระบุ)';
-        if(!byProduct[name]) byProduct[name] = { count:0, qty:0, amount:0 };
-        byProduct[name].count += 1;
-        byProduct[name].qty += Utils.num(it.qty);
-        byProduct[name].amount += Calc.itemAmount(it);
-      });
-    });
-    const names = Object.keys(byProduct).sort((a,b)=> sortKey==='count' ? (byProduct[b].count-byProduct[a].count) : (byProduct[b].amount-byProduct[a].amount));
-
-    const tbody = document.querySelector('#product-report-table tbody');
-    document.getElementById('product-report-empty').style.display = names.length ? 'none' : 'block';
-    tbody.innerHTML = names.map(name=>{
-      const p = byProduct[name];
-      return `<tr>
-        <td>${Utils.escapeHtml(name)}</td>
-        <td class="text-right">${p.count}</td>
-        <td class="text-right">${Utils.formatMoney(p.qty)}</td>
-        <td class="text-right" style="font-weight:700;">${Utils.formatCurrency(p.amount)}</td>
-      </tr>`;
-    }).join('');
-
-    Reports._rows.product = [
-      ['สินค้า/บริการ','จำนวนครั้งที่ใช้','จำนวนรวม','ยอดรวม']
-    ].concat(names.map(name=> [name, byProduct[name].count, byProduct[name].qty, byProduct[name].amount]));
-  },
-
-  /* ---------------------------- 9. MANAGEMENT FEE REPORT ---------------------------- */
-  renderMgmtFeeReport(){
-    const from = document.getElementById('rpt-mgmtfee-from').value;
-    const to = document.getElementById('rpt-mgmtfee-to').value;
-    const docs = Documents.list().filter(d=>{
-      if(!d.mgmtFeeEnabled) return false;
-      if(from && (d.date||'') < from) return false;
-      if(to && (d.date||'') > to) return false;
-      return true;
-    });
-
-    const tbody = document.querySelector('#mgmtfee-report-table tbody');
-    document.getElementById('mgmtfee-report-empty').style.display = docs.length ? 'none' : 'block';
-    tbody.innerHTML = docs.map(d=>{
-      const t = Calc.computeTotals(d);
-      return `<tr>
-        <td class="nowrap">${Utils.escapeHtml(d.docNumber)}</td>
-        <td>${Utils.escapeHtml((d.customer&&d.customer.name)||'')}</td>
-        <td class="text-right">${Utils.formatMoney(t.subtotal)}</td>
-        <td class="text-right">${Utils.num(d.mgmtFeePct)}%</td>
-        <td class="text-right">${Utils.formatMoney(t.mgmtFee)}</td>
-        <td class="text-right">${Utils.formatMoney(t.vat)}</td>
-        <td class="text-right" style="font-weight:700;">${Utils.formatCurrency(t.grandTotal)}</td>
-      </tr>`;
-    }).join('');
-
-    Reports._rows.mgmtfee = [
-      ['เลขที่','ลูกค้า','Subtotal','Mgmt Fee %','Mgmt Fee Amount','VAT','Grand Total']
-    ].concat(docs.map(d=>{ const t=Calc.computeTotals(d); return [d.docNumber, (d.customer&&d.customer.name)||'', t.subtotal, Utils.num(d.mgmtFeePct), t.mgmtFee, t.vat, t.grandTotal]; }));
-  },
-
-  /* ---------------------------- 10. DOCUMENT STATUS REPORT ---------------------------- */
+  /* ---------------------------- 3. DOCUMENT STATUS REPORT — สถานะเอกสาร ---------------------------- */
   renderDocStatusReport(){
-    const docs = DB.documents;
+    const p = 'rpt-docstatus';
+    const docs = Reports._filterDocs(DB.documents, p);
+    const chartDocs = Reports._filterDocs(DB.documents, p, { from:'', to:'' });
+
     const draftCount = docs.filter(d=>d.status==='Draft').length;
     const sentCount = docs.filter(d=>d.status==='Sent').length;
     const approvedCount = docs.filter(d=>d.status==='Approved').length;
@@ -6525,6 +6722,8 @@ const Reports = {
       { label:'Overdue', value: overdueCount, accent:'red' }
     ]);
 
+    Reports._renderMonthlyChart('docstatus-chart', chartDocs, ()=> 1); // document count per month
+
     const tbody = document.querySelector('#docstatus-report-table tbody');
     tbody.innerHTML = STATUS_LIST.map(status=>{
       const qt = docs.filter(d=>d.type==='QT' && d.status===status).length;
@@ -6540,12 +6739,12 @@ const Reports = {
       return [status, qt, inv, qt+inv];
     }));
 
-    Reports.renderWorkflowReport();
+    Reports.renderWorkflowReport(docs);
   },
 
   /* ---------------------------- APPROVAL WORKFLOW STATUS (supplementary insight) ---------------------------- */
-  renderWorkflowReport(){
-    const docs = Documents.list().filter(d=> d.status !== 'Cancelled');
+  renderWorkflowReport(filteredDocs){
+    const docs = (filteredDocs || DB.documents).filter(d=> d.status !== 'Cancelled');
     const notApproved = docs.filter(d=> d.workflow && !d.workflow.authApproved);
     const pendingAcct = docs.filter(d=> d.workflow && d.workflow.authApproved && !d.workflow.acctApproved);
     const billed = docs.filter(d=> d.workflow && d.workflow.acctApproved);
@@ -6580,16 +6779,206 @@ const Reports = {
       section('③ วางบิลแล้ว', 'var(--green)', billed);
   },
 
-  /* ---------------------------- 11. MONTHLY PERFORMANCE REPORT ---------------------------- */
+  /* ---------------------------- 4. TAX REPORT (VAT + WHT) — ภาษี ---------------------------- */
+  renderTaxReport(){
+    const p = 'rpt-tax';
+    const mode = Reports._v(p+'-mode'); // '', 'vat', 'wht'
+    let docs = Reports._filterDocs(Documents.list(), p).filter(d=> d.vatEnabled || d.whtEnabled);
+    if(mode==='vat') docs = docs.filter(d=> d.vatEnabled);
+    else if(mode==='wht') docs = docs.filter(d=> d.whtEnabled);
+    let chartDocs = Reports._filterDocs(Documents.list(), p, { from:'', to:'' }).filter(d=> d.vatEnabled || d.whtEnabled);
+    if(mode==='vat') chartDocs = chartDocs.filter(d=> d.vatEnabled);
+    else if(mode==='wht') chartDocs = chartDocs.filter(d=> d.whtEnabled);
+
+    const vatTotal = docs.reduce((s,d)=> s + (d.vatEnabled?Calc.computeTotals(d).vat:0), 0);
+    const whtTotal = docs.reduce((s,d)=> s + (d.whtEnabled?Calc.computeTotals(d).wht:0), 0);
+    const taxBaseTotal = docs.reduce((s,d)=> s + Calc.computeTotals(d).taxBase, 0);
+    const vatDocCount = docs.filter(d=>d.vatEnabled).length;
+    const whtDocCount = docs.filter(d=>d.whtEnabled).length;
+
+    document.getElementById('tax-kpi-grid').innerHTML = Reports._kpiHtml([
+      { label:'VAT รวม', value: Utils.formatCurrency(vatTotal), accent:'green' },
+      { label:'WHT รวม', value: Utils.formatCurrency(whtTotal), accent:'amber' },
+      { label:'ฐานภาษีรวม (Tax Base)', value: Utils.formatCurrency(taxBaseTotal) },
+      { label:'เอกสารมี VAT', value: vatDocCount },
+      { label:'เอกสารมี WHT', value: whtDocCount }
+    ]);
+
+    Reports._renderMonthlyChart('tax-chart', chartDocs, d=> (d.vatEnabled?Calc.computeTotals(d).vat:0) + (d.whtEnabled?Calc.computeTotals(d).wht:0));
+
+    const tbody = document.querySelector('#tax-report-table tbody');
+    document.getElementById('tax-report-empty').style.display = docs.length ? 'none' : 'block';
+    tbody.innerHTML = docs.map(d=>{
+      const t = Calc.computeTotals(d);
+      return `<tr>
+        <td class="nowrap">${Utils.escapeHtml(d.docNumber)}</td>
+        <td class="nowrap">${Utils.formatDateThai(d.date)}</td>
+        <td>${Utils.escapeHtml((d.customer&&d.customer.name)||'')}</td>
+        <td>${Utils.escapeHtml((d.customer&&d.customer.taxId)||'-')}</td>
+        <td class="text-right">${Utils.formatMoney(t.taxBase)}</td>
+        <td class="text-right">${d.vatEnabled?Utils.formatMoney(t.vat):'-'}</td>
+        <td class="text-right">${d.whtEnabled?(Utils.num(d.whtPct)+'%'):'-'}</td>
+        <td class="text-right">${d.whtEnabled?Utils.formatMoney(t.wht):'-'}</td>
+        <td class="text-right">${Utils.formatCurrency(t.grandTotal)}</td>
+        <td class="text-right" style="font-weight:700;">${Utils.formatCurrency(t.netPayable)}</td>
+      </tr>`;
+    }).join('');
+
+    Reports._rows.tax = [
+      ['เลขเอกสาร','วันที่','ลูกค้า','Tax ID','Tax Base','VAT','WHT %','WHT Amount','Grand Total','Net Payable']
+    ].concat(docs.map(d=>{ const t=Calc.computeTotals(d); return [d.docNumber, d.date, (d.customer&&d.customer.name)||'', (d.customer&&d.customer.taxId)||'', t.taxBase, d.vatEnabled?t.vat:'', d.whtEnabled?Utils.num(d.whtPct):'', d.whtEnabled?t.wht:'', t.grandTotal, t.netPayable]; }))
+     .concat([[], ['VAT รวมทั้งหมด', vatTotal], ['WHT รวมทั้งหมด', whtTotal]]);
+  },
+
+  /* ---------------------------- 5. CUSTOMER & PRODUCT/SERVICE — ลูกค้าและสินค้า/บริการ ---------------------------- */
+  renderCustProdReport(){
+    const p = 'rpt-cp';
+    const docs = Reports._filterDocs(Documents.list(), p);
+    const chartDocs = Reports._filterDocs(Documents.list(), p, { from:'', to:'' });
+
+    // --- Customer summary ---
+    const byCust = {};
+    docs.forEach(d=>{
+      const name = (d.customer && d.customer.name) || '(ไม่ระบุลูกค้า)';
+      if(!byCust[name]) byCust[name] = { count:0, sales:0, outstanding:0 };
+      byCust[name].count += 1;
+      byCust[name].sales += Calc.computeTotals(d).grandTotal;
+      if(d.type==='INV' && d.status!=='Paid' && d.status!=='Cancelled'){
+        byCust[name].outstanding += Calc.remainingBalance(d);
+      }
+    });
+    const custNames = Object.keys(byCust).sort((a,b)=> byCust[b].sales - byCust[a].sales);
+    const topCustName = custNames[0];
+
+    // --- Product / service summary ---
+    const sortKey = Reports._v(p+'-product-sort') || 'amount';
+    const byProduct = {};
+    docs.forEach(d=>{
+      (d.items||[]).forEach(it=>{
+        const name = it.description || '(ไม่ระบุ)';
+        if(!byProduct[name]) byProduct[name] = { count:0, qty:0, amount:0 };
+        byProduct[name].count += 1;
+        byProduct[name].qty += Utils.num(it.qty);
+        byProduct[name].amount += Calc.itemAmount(it);
+      });
+    });
+    const productNames = Object.keys(byProduct).sort((a,b)=> sortKey==='count' ? (byProduct[b].count-byProduct[a].count) : (byProduct[b].amount-byProduct[a].amount));
+
+    // --- Management fee ---
+    const mgmtDocs = docs.filter(d=> d.mgmtFeeEnabled);
+    const totalMgmtFee = mgmtDocs.reduce((s,d)=> s + Calc.computeTotals(d).mgmtFee, 0);
+
+    document.getElementById('custprod-kpi-grid').innerHTML = Reports._kpiHtml([
+      { label:'จำนวนลูกค้า', value: custNames.length },
+      { label:'ลูกค้ายอดสูงสุด', value: Utils.escapeHtml(topCustName||'-'), accent:'amber' },
+      { label:'จำนวนสินค้า/บริการ', value: productNames.length },
+      { label:'เอกสารมี Management Fee', value: mgmtDocs.length },
+      { label:'ยอด Management Fee รวม', value: Utils.formatCurrency(totalMgmtFee), accent:'green' }
+    ]);
+
+    Reports._renderMonthlyChart('custprod-chart', chartDocs, d=> Calc.computeTotals(d).grandTotal);
+
+    const custTbody = document.querySelector('#cp-customer-table tbody');
+    document.getElementById('cp-customer-empty').style.display = custNames.length ? 'none' : 'block';
+    custTbody.innerHTML = custNames.map(name=>{
+      const c = byCust[name];
+      const notes = [];
+      if(name === topCustName && c.sales > 0) notes.push('<span class="badge badge-approved">ยอดสูงสุด</span>');
+      if(c.outstanding > 0.004) notes.push('<span class="badge badge-overdue">ค้างชำระ</span>');
+      return `<tr>
+        <td>${Utils.escapeHtml(name)}</td>
+        <td class="text-right">${c.count}</td>
+        <td class="text-right" style="font-weight:700;">${Utils.formatCurrency(c.sales)}</td>
+        <td class="text-right">${c.outstanding>0.004 ? Utils.formatCurrency(c.outstanding) : '-'}</td>
+        <td>${notes.join(' ') || '-'}</td>
+      </tr>`;
+    }).join('');
+
+    const prodTbody = document.querySelector('#cp-product-table tbody');
+    document.getElementById('cp-product-empty').style.display = productNames.length ? 'none' : 'block';
+    prodTbody.innerHTML = productNames.map(name=>{
+      const pr = byProduct[name];
+      return `<tr>
+        <td>${Utils.escapeHtml(name)}</td>
+        <td class="text-right">${pr.count}</td>
+        <td class="text-right">${Utils.formatMoney(pr.qty)}</td>
+        <td class="text-right" style="font-weight:700;">${Utils.formatCurrency(pr.amount)}</td>
+      </tr>`;
+    }).join('');
+
+    const mgmtTbody = document.querySelector('#cp-mgmtfee-table tbody');
+    document.getElementById('cp-mgmtfee-empty').style.display = mgmtDocs.length ? 'none' : 'block';
+    mgmtTbody.innerHTML = mgmtDocs.map(d=>{
+      const t = Calc.computeTotals(d);
+      return `<tr>
+        <td class="nowrap">${Utils.escapeHtml(d.docNumber)}</td>
+        <td>${Utils.escapeHtml((d.customer&&d.customer.name)||'')}</td>
+        <td class="text-right">${Utils.formatMoney(t.subtotal)}</td>
+        <td class="text-right">${Utils.num(d.mgmtFeePct)}%</td>
+        <td class="text-right">${Utils.formatMoney(t.mgmtFee)}</td>
+        <td class="text-right">${Utils.formatMoney(t.vat)}</td>
+        <td class="text-right" style="font-weight:700;">${Utils.formatCurrency(t.grandTotal)}</td>
+      </tr>`;
+    }).join('');
+
+    Reports._rows.custprod = [
+      ['-- สรุปยอดขายตามลูกค้า --'],
+      ['ลูกค้า','จำนวนเอกสาร','ยอดขายรวม','ยอดค้างชำระ']
+    ].concat(custNames.map(name=> [name, byCust[name].count, byCust[name].sales, byCust[name].outstanding]))
+     .concat([[], ['-- สินค้า/บริการ --'], ['สินค้า/บริการ','จำนวนครั้งที่ใช้','จำนวนรวม','ยอดรวม']])
+     .concat(productNames.map(name=> [name, byProduct[name].count, byProduct[name].qty, byProduct[name].amount]))
+     .concat([[], ['-- Management Fee --'], ['เลขที่','ลูกค้า','Subtotal','Mgmt Fee %','Mgmt Fee Amount','VAT','Grand Total']])
+     .concat(mgmtDocs.map(d=>{ const t=Calc.computeTotals(d); return [d.docNumber, (d.customer&&d.customer.name)||'', t.subtotal, Utils.num(d.mgmtFeePct), t.mgmtFee, t.vat, t.grandTotal]; }));
+  },
+
+  populateCustomerHistorySelect(){
+    const sel = document.getElementById('rpt-cp-history-select');
+    if(!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">-- เลือกลูกค้า --</option>' + Customers.list().map(c=>
+      `<option value="${c.id}">${Utils.escapeHtml(c.name)}</option>`).join('');
+    if(cur) sel.value = cur;
+  },
+
+  renderCustomerHistory(){
+    const custId = document.getElementById('rpt-cp-history-select').value;
+    const tbody = document.querySelector('#customer-history-table tbody');
+    const emptyEl = document.getElementById('customer-history-empty');
+    if(!custId){ tbody.innerHTML=''; emptyEl.style.display='block'; emptyEl.textContent='เลือกลูกค้าเพื่อดูประวัติเอกสาร'; return; }
+    const docs = Documents.list().filter(d=> d.customerId === custId);
+    emptyEl.style.display = docs.length ? 'none' : 'block';
+    emptyEl.textContent = 'ลูกค้ารายนี้ยังไม่มีเอกสาร';
+    tbody.innerHTML = docs.map(d=>{
+      const t = Calc.computeTotals(d);
+      return `<tr>
+        <td class="nowrap">${Utils.escapeHtml(d.docNumber)}</td>
+        <td>${d.type}</td>
+        <td class="nowrap">${Utils.formatDateThai(d.date)}</td>
+        <td class="text-right">${Utils.formatCurrency(t.grandTotal)}</td>
+        <td>${Render.badgeHtml(d.status)}</td>
+      </tr>`;
+    }).join('');
+  },
+
+  /* ---------------------------- 6. MONTHLY PERFORMANCE REPORT — สรุปรายเดือน ---------------------------- */
   renderMonthlyReport(){
-    const monthKey = document.getElementById('rpt-monthly-month').value || Utils.todayISO().slice(0,7);
-    const docs = DB.documents.filter(d=> (d.date||'').startsWith(monthKey));
+    const p = 'rpt-monthly';
+    const monthKey = Reports._v(p+'-month') || Utils.todayISO().slice(0,7);
+    const monthStart = monthKey+'-01';
+    const endDate = new Date(monthStart+'T00:00:00');
+    endDate.setMonth(endDate.getMonth()+1); endDate.setDate(0);
+    const monthEnd = endDate.getFullYear()+'-'+String(endDate.getMonth()+1).padStart(2,'0')+'-'+String(endDate.getDate()).padStart(2,'0');
+
+    const docs = Reports._filterDocs(DB.documents, p, { from: monthStart, to: monthEnd });
+    // outstanding should reflect ALL open invoices (not just this month's), but still
+    // respect the type/customer/status/creator filters — so re-filter with no date bound
+    const allFiltered = Reports._filterDocs(DB.documents, p, { from:'', to:'' });
 
     const salesTotal = docs.reduce((s,d)=> s + Calc.computeTotals(d).grandTotal, 0);
     const qtCount = docs.filter(d=>d.type==='QT').length;
     const invCount = docs.filter(d=>d.type==='INV').length;
     const paidTotal = docs.filter(d=>d.type==='INV' && d.status==='Paid').reduce((s,d)=> s + Calc.computeTotals(d).grandTotal, 0);
-    const outstandingTotal = DB.documents.filter(d=> d.type==='INV' && d.status!=='Paid' && d.status!=='Cancelled').reduce((s,d)=> s + Calc.remainingBalance(d), 0);
+    const outstandingTotal = allFiltered.filter(d=> d.type==='INV' && d.status!=='Paid' && d.status!=='Cancelled').reduce((s,d)=> s + Calc.remainingBalance(d), 0);
     const vatTotal = docs.reduce((s,d)=> s + Calc.computeTotals(d).vat, 0);
     const whtTotal = docs.reduce((s,d)=> s + Calc.computeTotals(d).wht, 0);
 
@@ -6613,6 +7002,8 @@ const Reports = {
       { label:'WHT รวม', value: Utils.formatCurrency(whtTotal) },
       { label:'ลูกค้าหลักประจำเดือน', value: Utils.escapeHtml(topCustomerName), accent:'amber' }
     ]);
+
+    Reports._renderMonthlyChart('monthly-chart', allFiltered, d=> Calc.computeTotals(d).grandTotal, monthKey);
 
     const tbody = document.querySelector('#monthly-top-customers-table tbody');
     document.getElementById('monthly-top-customers-empty').style.display = topCustomers.length ? 'none' : 'block';
@@ -6638,7 +7029,7 @@ const Reports = {
     ];
   },
 
-  /* ---------------------------- 12. GENERIC EXPORT — every report exports PDF / Excel / CSV ---------------------------- */
+  /* ---------------------------- GENERIC EXPORT — every report exports PDF / Excel / CSV ---------------------------- */
   exportCSV(key){
     const rows = Reports._rows[key];
     if(!rows || rows.length <= 1){ Utils.toast('ไม่มีข้อมูลสำหรับ Export', 'err'); return; }
@@ -6974,6 +7365,8 @@ function wireEvents(){
       const view = item.dataset.view;
       if(view === 'editor'){
         Editor.newDocument('QT');
+      }else if(view === 'helpdesk'){
+        Modals.open('modal-helpdesk-notice');
       }else{
         Render.showView(view);
       }
@@ -6984,6 +7377,29 @@ function wireEvents(){
     item.addEventListener('keydown', (e)=>{
       if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); activate(); }
     });
+  });
+  // ---- Reports: tab switching (ภาพรวมยอดขาย / ลูกหนี้และยอดค้างชำระ / ฯลฯ) ----
+  // Bug fix: these buttons had a data-report attribute and a matching
+  // Reports.switchTab() function, but nothing ever actually called it on click — so
+  // every tab except the default "ภาพรวมยอดขาย" was completely unresponsive. Delegated on
+  // the container (rather than one addEventListener per button) since it's one line
+  // covering all 6 buttons.
+  document.getElementById('report-tabs').addEventListener('click', (e)=>{
+    const btn = e.target.closest('.report-tab');
+    if(btn) Reports.switchTab(btn.dataset.report);
+  });
+  // ---- Reports: filter-bar change re-renders the currently active tab ----
+  // Bug fix: none of the report filters (date range, doc type, customer, status,
+  // creator, group-by, product sort, tax mode, month) were ever wired to re-render —
+  // changing one silently did nothing until the user switched tabs away and back.
+  // Delegated on the whole view since every filter id in every one of the 6 panels
+  // is prefixed 'rpt-' (see Reports._filterDocs); the customer-history lookup select
+  // is the one exception that calls a different render function.
+  document.getElementById('view-reports').addEventListener('change', (e)=>{
+    const id = e.target && e.target.id;
+    if(!id || !id.startsWith('rpt-')) return;
+    if(id === 'rpt-cp-history-select'){ Reports.renderCustomerHistory(); return; }
+    Reports.render(Reports.currentTab);
   });
   document.getElementById('menu-toggle').addEventListener('click', ()=>{
     document.getElementById('sidebar').classList.toggle('open');
@@ -7060,6 +7476,7 @@ function wireEvents(){
   // ---- Editor: action buttons ----
   document.getElementById('btn-save-doc').addEventListener('click', Editor.save);
   document.getElementById('btn-print-doc').addEventListener('click', ExportMod.print);
+  document.getElementById('btn-save-pdf-computer').addEventListener('click', ExportMod.saveDocPdfToComputer);
   // "Convert to Invoice" / "Export Excel (.xls)" / "Export CSV" buttons were removed
   // from the Editor toolbar per request (kept only บันทึก + Print/Export PDF, moved
   // under the approval-workflow card) — that functionality is still reachable from the

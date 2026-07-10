@@ -447,7 +447,8 @@ table.data-table tbody tr:hover{background:var(--gray-50);}
 .doc-items-table .empty-row td{height:16px;}
 .doc-items-table tbody tr:nth-child(odd){background:#fafbfc;}
 .doc-items-table th.c-idx,.doc-items-table td.c-idx{width:5%;}
-.doc-items-table th.c-desc,.doc-items-table td.c-desc{width:37%;text-align:left;}
+.doc-items-table th.c-desc{width:37%;text-align:center;}
+.doc-items-table td.c-desc{width:37%;text-align:left;}
 .doc-items-table th.c-qty,.doc-items-table td.c-qty{width:8%;}
 .doc-items-table th.c-unit,.doc-items-table td.c-unit{width:8%;}
 .doc-items-table th.c-price,.doc-items-table td.c-price{width:12%;}
@@ -4607,7 +4608,7 @@ const DocPreview = {
         <tr>
           <td class="c-idx center">${idx+1}</td>
           <td class="c-desc">${Utils.escapeHtml(it.description||'')}</td>
-          <td class="c-qty num">${Utils.formatMoney(it.qty).replace(/\.00$/,'')}</td>
+          <td class="c-qty center">${Utils.formatMoney(it.qty).replace(/\.00$/,'')}</td>
           <td class="c-unit center">${Utils.escapeHtml(it.unit||'')}</td>
           <td class="c-price num">${Utils.formatMoney(it.price)}</td>
           <td class="c-disc num">${Utils.num(it.discountPct) ? Utils.formatMoney(it.discountPct)+'%' : '-'}</td>

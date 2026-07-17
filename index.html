@@ -562,6 +562,35 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 @media (max-width:360px){
   .auth-trust-row{grid-template-columns:1fr;}
 }
+
+/* "เปิดใน notebook ภาพไม่สวยไม่บาลานซ์กัน...ให้ปรับอัตโนมัติ" — every breakpoint
+   above is WIDTH-based, so a typical laptop (1366-1440px wide — well past the
+   1180px tablet tier) still renders the full desktop layout. The actual
+   problem on a laptop isn't width, it's HEIGHT: a laptop's usable viewport is
+   often only ~650-750px tall after browser chrome, noticeably shorter than a
+   desktop monitor at the same width. Desktop-sized crown + gaps in that
+   shorter vertical space is what read as cramped/unbalanced. Fixed with
+   max-height queries — independent of width — so the page auto-adapts to
+   whichever dimension is actually tight, on PC or laptop, without needing a
+   manual per-device fix. Placed last so it also wins over the width-based
+   tiers above for the same properties on short+narrow viewports (e.g. a
+   phone in landscape). */
+@media (max-height:820px){
+  #auth-screen{padding:24px 20px;}
+  .auth-page{gap:22px;}
+  .auth-main-group{gap:22px;}
+  .auth-crown{width:280px;top:-100px;}
+  .auth-trust-row{padding-top:16px;}
+}
+@media (max-height:680px){
+  #auth-screen{padding:16px;}
+  .auth-page{gap:14px;}
+  .auth-main-group{gap:14px;}
+  .auth-crown{width:190px;top:-68px;}
+  .auth-trust-row{gap:14px;padding-top:12px;}
+  .auth-trust-row .ati-desc{display:none;}
+}
+
 #auth-screen .card{max-width:420px;width:100%;}
 .auth-role-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;background:var(--blue-accent-soft);color:var(--blue-accent);margin-left:6px;}
 

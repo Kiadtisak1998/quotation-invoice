@@ -637,6 +637,22 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 #sidebar .brand .brand-text{font-weight:600;font-size:14.5px;color:#fff;line-height:1.25;letter-spacing:-.01em;}
 #sidebar .brand .brand-text small{display:block;font-weight:400;font-size:10.5px;color:rgba(255,255,255,.68);margin-top:1px;}
 
+/* Company (Workspace) switcher — sits right under the brand block since it's
+   the same "who am I looking at" identity zone. Plain <select> on purpose:
+   keyboard-accessible and correctly-positioned/scrollable for free, no custom
+   dropdown JS needed — matches how every other picker in this app works. */
+#sidebar .company-switcher-wrap{padding:0 18px 14px;}
+#sidebar .company-switcher-label{display:block;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:4px;}
+#sidebar .company-switcher-wrap select{
+  width:100%;background:rgba(79,195,247,0.14);color:#fff;border:1.5px solid rgba(79,195,247,0.45);
+  border-radius:8px;padding:9px 8px;font-size:13.5px;font-weight:800;letter-spacing:normal;
+  text-align:center;text-align-last:center;cursor:pointer;white-space:nowrap;overflow:hidden;
+  transition:background .12s ease,border-color .12s ease,font-size .1s ease;
+}
+#sidebar .company-switcher-wrap select:hover{background:rgba(79,195,247,0.22);border-color:rgba(79,195,247,0.7);}
+#sidebar .company-switcher-wrap select:focus{outline:none;border-color:var(--blue-accent);box-shadow:0 0 0 2px rgba(79,195,247,0.35);}
+#sidebar .company-switcher-wrap select option{background:#132840;color:#fff;text-align:left;}
+
 #sidebar nav{flex:1;overflow-y:auto;padding:6px 10px;}
 /* Nav items: flat/transparent at rest, background only appears on hover or for
    the active item — per follow-up feedback that the "always-on chip + boxed
@@ -883,6 +899,11 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .btn-block{width:100%;justify-content:center;}
 
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.2px;}
+/* Admin > Users > "จัดการบริษัท (Workspace)" chips — same .badge base, plus
+   inline edit/delete icon buttons ("อยากให้แก้ไขได้ด้วย" / "เพิ่มและลบบริษัทได้"). */
+.company-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 6px 3px 10px;}
+.company-chip-btn{border:none;background:transparent;color:inherit;opacity:.7;cursor:pointer;font-size:11px;line-height:1;padding:2px 3px;border-radius:5px;transition:opacity .12s ease,background .12s ease;}
+.company-chip-btn:hover{opacity:1;background:rgba(255,255,255,0.12);}
 /* Round 9: pastel-on-white chips (light theme) don't read on near-black cards, so
    these flip to low-opacity tinted background + bright saturated text — same hue
    groupings as before (paid slightly stronger than approved; pendingapproval ==
@@ -1758,6 +1779,14 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
       <div class="logo-badge" id="sidebar-logo-badge">WR</div>
       <div class="brand-text">ระบบเอกสารบริษัท<small>Quotation &amp; Invoice System</small></div>
     </div>
+    <!-- Company switcher ("อยากทำฟังก์ชันเลือก บ. ได้") — swaps the ENTIRE working
+         dataset (documents/customers/products/banks/settings/counters) to a
+         different company's workspace; everything else in the app is unchanged.
+         See the Workspace module + Storage._key()/Cloud company_id filters. -->
+    <div class="company-switcher-wrap">
+      <label for="company-switcher-select" class="company-switcher-label">เลือกบริษัท</label>
+      <select id="company-switcher-select" aria-label="เลือกบริษัท (Workspace)"></select>
+    </div>
     <!-- Sidebar grouping (DOCUMENTS/FINANCE/MASTER DATA/REPORTS/SYSTEM) — presentational
          reorganization only. Every .nav-item below keeps its original class/data-view/id/
          role/tabindex/style/contents untouched, just nested one level deeper inside a
@@ -1797,6 +1826,7 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
       <div class="nav-group" data-group="master-data">
         <div class="nav-group-header" role="button" tabindex="0" aria-expanded="true"><span class="nav-group-label">Master Data</span><span class="nav-group-caret">▾</span></div>
         <div class="nav-group-items">
+          <div class="nav-item" data-view="company-info" role="button" tabindex="0"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V6a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v15"/><path d="M15 21V10a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v11"/><path d="M8 8h0M8 12h0M8 16h0"/><path d="M3 21h18"/></svg></span> ข้อมูลบริษัท</div>
           <div class="nav-item" data-view="customers" role="button" tabindex="0"><span class="ic" aria-hidden="true">◎</span> Customers</div>
           <div class="nav-item" data-view="products" role="button" tabindex="0"><span class="ic" aria-hidden="true">▤</span> Products/Services</div>
           <div class="nav-item" data-view="banks" role="button" tabindex="0"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 12 4l9 6"/><path d="M5 10v9M9 10v9M15 10v9M19 10v9"/><path d="M3 19h18"/></svg></span> Bank Accounts</div>
@@ -2784,6 +2814,20 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
         </div>
 
         <div class="card">
+          <div class="card-title">จัดการบริษัท (Workspace) — Admin</div>
+          <div class="field-hint" style="margin-bottom:10px;">
+            กด "➕ เพิ่มบริษัท" เพื่อเพิ่มบริษัทใหม่เข้าระบบ — เฉพาะ Admin เท่านั้นที่เพิ่มบริษัทได้ (บังคับทั้งในหน้านี้และที่ระดับฐานข้อมูล)
+            จากนั้นไปที่ตาราง "จัดการผู้ใช้งานและสิทธิ์" ด้านบน กดปุ่ม "🏢 บริษัท" ของแต่ละคน เพื่อกำหนดว่าใครเข้าบริษัทไหนได้บ้าง
+            (Role "Admin" เข้าถึงทุกบริษัทเสมอโดยอัตโนมัติ)
+          </div>
+          <div class="toolbar">
+            <button class="btn btn-sm btn-primary" id="btn-open-add-company">➕ เพิ่มบริษัท</button>
+            <button class="btn btn-sm" id="btn-refresh-companies">🔄 รีเฟรชรายชื่อบริษัท</button>
+          </div>
+          <div id="admin-company-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;"></div>
+        </div>
+
+        <div class="card">
           <div class="card-title">กำหนดสิทธิ์การใช้งาน (ตาม Role)</div>
           <div class="field-hint" style="margin-bottom:10px;">
             กำหนดได้ 2 ระดับ: (1) เมนูที่แต่ละ Role มองเห็นในแถบด้านซ้าย และ (2) สิทธิ์การดำเนินการกับเอกสาร
@@ -2861,30 +2905,44 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
       </section>
 
       <!-- ===================== VIEW: SETTINGS ===================== -->
+      <!-- "ข้อมูลบริษัท" — moved out of Settings into its own Master Data page
+           ("เอาตั้งค่า ข้อมูลบริษัท มาอยู่ในนี้") so it sits next to Customers/
+           Products/Bank Accounts instead of being buried inside System >
+           Settings. Same field ids as before, so Render.settingsForm() /
+           SettingsMod.save() need no changes — they're id-based, not
+           DOM-location-based. This is also the section a fresh company
+           workspace needs filled in first (see Workspace.switchTo/
+           reconcileAfterAuth — a brand-new company starts with blank
+           DB.company, so its document letterhead has nothing until this
+           page is filled in). -->
+      <section class="view" id="view-company-info">
+        <div class="card">
+          <div class="card-title">ข้อมูลบริษัท</div>
+          <div class="field-hint" style="margin-bottom:10px;">ข้อมูลนี้ใช้เป็นหัวกระดาษของเอกสาร (ใบเสนอราคา/ใบแจ้งหนี้ ฯลฯ) ของบริษัทที่กำลังเปิดใช้งานอยู่ (ดูตัวสลับบริษัทที่แถบด้านซ้าย)</div>
+          <div class="field"><label>ชื่อบริษัท</label><input type="text" id="set-company-name"></div>
+          <div class="field"><label>ที่อยู่</label><textarea id="set-company-address" rows="2"></textarea></div>
+          <div class="grid grid-2">
+            <div class="field"><label>เลขประจำตัวผู้เสียภาษี</label><input type="text" id="set-company-tax"></div>
+            <div class="field"><label>Email</label><input type="text" id="set-company-email"></div>
+            <div class="field"><label>โทรศัพท์</label><input type="text" id="set-company-phone"></div>
+            <div class="field"><label>เว็บไซต์</label><input type="text" id="set-company-website"></div>
+          </div>
+          <div class="field"><label>โลโก้บริษัท</label><input type="file" id="set-company-logo" accept="image/*"><div class="field-hint" id="logo-preview-hint"></div></div>
+          <div class="field"><label>ตราประทับบริษัท (Default)</label><input type="file" id="set-company-stamp" accept="image/*"><div class="field-hint" id="stamp-hint"></div></div>
+          <div class="card-title" style="font-size:13px;margin-top:4px;">ผู้เซ็นเอกสาร (ค่าเริ่มต้นบริษัท)</div>
+          <div class="grid grid-2">
+            <div class="field"><label>ชื่อผู้จัดทำเอกสาร (Prepared By)</label><input type="text" id="set-prepared-name"></div>
+            <div class="field"><label>ลายเซ็นผู้จัดทำเอกสาร</label><input type="file" id="set-prepared-signature" accept="image/*"><div class="field-hint" id="set-prepared-sig-hint"></div></div>
+            <div class="field"><label>ชื่อผู้มีอำนาจอนุมัติ (Authorized)</label><input type="text" id="set-authorized-name"></div>
+            <div class="field"><label>ลายเซ็นผู้มีอำนาจอนุมัติ</label><input type="file" id="set-authorized-signature" accept="image/*"><div class="field-hint" id="set-authorized-sig-hint"></div></div>
+          </div>
+          <div class="field-hint">ค่านี้เป็นค่าเริ่มต้นของทั้งบริษัท เอกสารใหม่จะดึงชื่อ/ลายเซ็นนี้มาใส่ให้อัตโนมัติ — หากลูกค้ารายใดต้องใช้ผู้เซ็นคนละคน สามารถตั้งค่าทับเฉพาะรายที่เมนู Customers ได้</div>
+          <button class="btn btn-primary btn-block" id="btn-save-company-info">บันทึกข้อมูลบริษัท</button>
+        </div>
+      </section>
+
       <section class="view" id="view-settings">
         <div class="grid grid-2">
-          <div class="card">
-            <div class="card-title">ข้อมูลบริษัท</div>
-            <div class="field"><label>ชื่อบริษัท</label><input type="text" id="set-company-name"></div>
-            <div class="field"><label>ที่อยู่</label><textarea id="set-company-address" rows="2"></textarea></div>
-            <div class="grid grid-2">
-              <div class="field"><label>เลขประจำตัวผู้เสียภาษี</label><input type="text" id="set-company-tax"></div>
-              <div class="field"><label>Email</label><input type="text" id="set-company-email"></div>
-              <div class="field"><label>โทรศัพท์</label><input type="text" id="set-company-phone"></div>
-              <div class="field"><label>เว็บไซต์</label><input type="text" id="set-company-website"></div>
-            </div>
-            <div class="field"><label>โลโก้บริษัท</label><input type="file" id="set-company-logo" accept="image/*"><div class="field-hint" id="logo-preview-hint"></div></div>
-            <div class="field"><label>ตราประทับบริษัท (Default)</label><input type="file" id="set-company-stamp" accept="image/*"><div class="field-hint" id="stamp-hint"></div></div>
-            <div class="card-title" style="font-size:13px;margin-top:4px;">ผู้เซ็นเอกสาร (ค่าเริ่มต้นบริษัท)</div>
-            <div class="grid grid-2">
-              <div class="field"><label>ชื่อผู้จัดทำเอกสาร (Prepared By)</label><input type="text" id="set-prepared-name"></div>
-              <div class="field"><label>ลายเซ็นผู้จัดทำเอกสาร</label><input type="file" id="set-prepared-signature" accept="image/*"><div class="field-hint" id="set-prepared-sig-hint"></div></div>
-              <div class="field"><label>ชื่อผู้มีอำนาจอนุมัติ (Authorized)</label><input type="text" id="set-authorized-name"></div>
-              <div class="field"><label>ลายเซ็นผู้มีอำนาจอนุมัติ</label><input type="file" id="set-authorized-signature" accept="image/*"><div class="field-hint" id="set-authorized-sig-hint"></div></div>
-            </div>
-            <div class="field-hint">ค่านี้เป็นค่าเริ่มต้นของทั้งบริษัท เอกสารใหม่จะดึงชื่อ/ลายเซ็นนี้มาใส่ให้อัตโนมัติ — หากลูกค้ารายใดต้องใช้ผู้เซ็นคนละคน สามารถตั้งค่าทับเฉพาะรายที่เมนู Customers ได้</div>
-          </div>
-
           <div class="card">
             <div class="card-title">ค่าเริ่มต้นการคำนวณ</div>
             <div class="grid grid-2">
@@ -3369,6 +3427,74 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
   </div>
 </div>
 
+<!-- Add Company (Admin > Users) — "จำกัดสิทธิแค่แอดมินเป็นคนทำ": inserts a new
+     row into the `companies` table via Workspace.addCompany(). Enforced admin-
+     only both by this page being nav-gated to Admin already AND by the
+     "companies: admin inserts" RLS policy in
+     supabase-migration-company-permissions.sql, so it can't be bypassed even
+     via a direct API call from a modified client. -->
+<div class="modal-backdrop no-print" id="modal-add-company">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-head"><h3>เพิ่มบริษัทใหม่</h3><button class="modal-close" data-close aria-label="ปิดหน้าต่าง">✕</button></div>
+    <div class="modal-body">
+      <div class="field">
+        <label>ชื่อบริษัท</label>
+        <input type="text" id="add-company-name" placeholder="เช่น บริษัท ตัวอย่าง จำกัด">
+      </div>
+      <div class="field-hint">
+        เพิ่มแล้วจะขึ้นในตัวสลับบริษัท (Workspace) ของ Admin ทันที — ไปที่ตารางผู้ใช้งานด้านบน
+        กดปุ่ม "🏢 บริษัท" ของแต่ละคน เพื่อเปิดให้เขาเข้าบริษัทนี้ได้
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close>ยกเลิก</button>
+      <button class="btn btn-primary" id="btn-add-company-submit">➕ เพิ่มบริษัท</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rename Company (Admin > Users) — "อยากให้แก้ไขได้ด้วย": updates a
+     company's name via Workspace.renameCompany(). Only affects the label
+     shown in the switcher/chip list, not that company's own document
+     letterhead (Settings > โลโก้บริษัท/ข้อมูลบริษัท, per company). -->
+<div class="modal-backdrop no-print" id="modal-rename-company">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-head"><h3>แก้ไขชื่อบริษัท</h3><button class="modal-close" data-close aria-label="ปิดหน้าต่าง">✕</button></div>
+    <div class="modal-body">
+      <div class="field">
+        <label>ชื่อบริษัท</label>
+        <input type="text" id="rename-company-name" placeholder="เช่น บริษัท ตัวอย่าง จำกัด">
+      </div>
+      <div class="field-hint">
+        แก้ไขเฉพาะชื่อที่แสดงในตัวสลับบริษัท/รายการนี้ — ไม่กระทบหัวกระดาษเอกสารของบริษัทนี้ (ตั้งค่าแยกที่ Settings)
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close>ยกเลิก</button>
+      <button class="btn btn-primary" id="btn-rename-company-submit">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Restrict-companies-per-user (Admin > Users) — sets which companies one
+     specific user may switch to (profiles.allowed_company_ids), via
+     Auth.setUserCompanies(). Admin always has full access regardless of this
+     list — see Auth.canAccessCompany. -->
+<div class="modal-backdrop no-print" id="modal-user-companies">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-head"><h3>จำกัดบริษัทที่เข้าถึงได้</h3><button class="modal-close" data-close aria-label="ปิดหน้าต่าง">✕</button></div>
+    <div class="modal-body">
+      <p class="field-hint" id="user-companies-label" style="margin-bottom:12px;"></p>
+      <div id="user-companies-checklist" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <div class="field-hint" style="margin-top:12px;">Role "Admin" เข้าถึงทุกบริษัทเสมอ ไม่ว่าจะติ๊กอะไรไว้ที่นี่</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close>ยกเลิก</button>
+      <button class="btn btn-primary" id="btn-user-companies-save">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
 <!-- Help Desk — opened manually now (sidebar "แจ้งปัญหา" nav item, see wireEvents()'s
      activate(), and the plain text link on the auth screen), no longer an automatic
      popup before login (moved per user request — a blocking popup on the login
@@ -3499,6 +3625,235 @@ const USERNAME_EMAIL_DOMAIN = 'users.local';
 const DEFAULT_SUPABASE_URL = 'https://mlgdhzkitvbdhpponyqh.supabase.co';
 const DEFAULT_SUPABASE_KEY = 'sb_publishable_iCx6AJNghw0baxurYZEF-w_vgROqWzO';
 
+/* ============================================================================
+   WORKSPACE (MULTI-COMPANY) — "อยากทำฟังก์ชันเลือก บ. ได้" / สลับ workspace ทั้งระบบ.
+   One shared login system + one shared Supabase project, but every logged-in
+   user can switch which of these companies' data (documents/customers/
+   products/banks/settings/counters — literally the ENTIRE DB blob) the app is
+   currently pointed at. Everything else ("ข้างในเหมือนเดิม") — roles,
+   permissions, workflow, UI — stays completely unchanged; this module only
+   controls WHICH company's copy of that unchanged app you're looking at.
+   Two things make this work with almost no changes anywhere else in the file:
+   1. Storage.load()/saveLocalOnly() key the ENTIRE local DB blob off
+      Workspace.getCurrentId() (see Storage._key() below) — so every module
+      that reads/writes DB.* (Documents, Customers, Products, Banks, Receipts,
+      Settings, counters...) is automatically per-company-isolated for free.
+   2. The Cloud module tags every row it pushes with company_id and filters
+      every pull/diff query by it (see Cloud.pushCustomers/pushDocuments/
+      pullAll/pushCompanySettings/pushActivityLog below) — critical: the
+      "delete rows that vanished locally" diff logic in pushCustomers/
+      pushDocuments would otherwise wipe every OTHER company's cloud data the
+      moment you switched to a company with fewer (or zero) local records.
+   Company list now lives in the `companies` Supabase table (Workspace.list,
+   loaded by Workspace.loadCompanies()) instead of a hardcoded array — an
+   Admin can add new companies from the Admin > Users page (Workspace.
+   addCompany), enforced admin-only both by hiding that control from non-
+   admins AND by the "companies: admin inserts" RLS policy in
+   supabase-migration-company-permissions.sql, so it can't be bypassed even
+   via a direct API call. Which companies a given user may SWITCH to is a
+   separate, per-user allow-list (profiles.allowed_company_ids — see
+   Auth.canAccessCompany/setUserCompanies); Admin always sees every company
+   regardless of that list. `id` doubles as the Supabase `companies.id` /
+   every table's `company_id` FK value. */
+const Workspace = {
+  /** Small embedded seed — only actually used before Workspace.loadCompanies()
+   *  has ever completed (first paint before Auth resolves, or fully offline).
+   *  The live source of truth is always the `companies` table once reachable. */
+  list: [
+    { id:'wang-ruay', name:'บริษัท หวังรวย จำกัด' } // pre-existing data lives here
+  ],
+  DEFAULT_ID: 'wang-ruay',
+  STORAGE_KEY: 'qis_current_company',
+
+  /** Fetches the live company list from Supabase. Safe to call repeatedly —
+   *  Workspace.addCompany() calls it again right after inserting so the new
+   *  company shows up immediately. Keeps whatever's already in Workspace.list
+   *  if Cloud isn't reachable, rather than clearing it. */
+  async loadCompanies(){
+    if(!Cloud.isEnabled()) return Workspace.list;
+    try{
+      const { data, error } = await Cloud.client.from('companies').select('*').order('created_at', {ascending:true});
+      if(error) throw error;
+      if(data && data.length) Workspace.list = data.map(row=> ({ id: row.id, name: row.name }));
+    }catch(err){
+      console.error('Workspace.loadCompanies failed, keeping last-known list', err);
+    }
+    return Workspace.list;
+  },
+
+  /** Companies the CURRENTLY logged-in user may actually switch to — Admin
+   *  sees every company, everyone else sees only their allow-list. This is
+   *  what the sidebar switcher renders (Render.renderCompanySwitcher). */
+  allowedList(){
+    return Workspace.list.filter(c=> Auth.canAccessCompany(c.id));
+  },
+
+  getCurrentId(){
+    try{
+      const saved = localStorage.getItem(Workspace.STORAGE_KEY);
+      if(saved) return saved;
+    }catch(e){}
+    return Workspace.DEFAULT_ID;
+  },
+  getCurrent(){
+    const id = Workspace.getCurrentId();
+    return Workspace.list.find(c=> c.id === id) || { id, name: id };
+  },
+  setCurrentId(id){
+    try{ localStorage.setItem(Workspace.STORAGE_KEY, id); }catch(e){ console.error('Workspace.setCurrentId failed', e); }
+  },
+
+  /** Called once right after Auth resolves (AuthUI.afterAuthResolved) —
+   *  confirms the company loaded at BOOT (picked before we knew this user's
+   *  permissions) is one they're actually still allowed to use. If not (an
+   *  Admin revoked access while they were away, or this is a brand-new user
+   *  who's never had wang-ruay access), falls back to their first allowed
+   *  company and reloads the local DB for it. Returns true if a reload
+   *  happened, so the caller knows whether to re-render/re-hydrate. */
+  async reconcileAfterAuth(){
+    await Workspace.loadCompanies();
+    const currentId = Workspace.getCurrentId();
+    if(Auth.canAccessCompany(currentId)) return false;
+    const fallback = Workspace.allowedList()[0];
+    if(!fallback) return false; // no allowed companies at all — nothing we can do
+    Workspace.setCurrentId(fallback.id);
+    Data.init();
+    if(!localStorage.getItem(Storage._key(fallback.id))){
+      DB = Data.blankDB();
+      DB.company.name = fallback.name;
+      Storage.saveLocalOnly();
+    }
+    return true;
+  },
+
+  /** Switches the active company: persists the choice, reloads the (now
+   *  company-scoped) local DB, re-renders everything that's company-identity-
+   *  driven, and re-syncs from Supabase for the new company — mirrors what
+   *  initApp() already does on first boot (Data.init() + hydrateFromCloud()),
+   *  just made re-entrant so it can run again mid-session. */
+  async switchTo(companyId){
+    if(!Auth.canAccessCompany(companyId)){
+      Utils.toast('คุณไม่มีสิทธิ์เข้าบริษัทนี้', 'err');
+      Render.renderCompanySwitcher();
+      return;
+    }
+    if(companyId === Workspace.getCurrentId()) return;
+    const target = Workspace.list.find(c=> c.id === companyId) || { id: companyId, name: companyId };
+    const firstVisit = !localStorage.getItem(Storage._key(companyId));
+    Workspace.setCurrentId(companyId);
+    Utils.toast(`กำลังสลับไปที่ ${target.name} ...`, 'ok');
+    Data.init();
+    if(firstVisit){
+      // Brand-new workspace with nothing saved yet — Data.init() would have run
+      // Data.seedIfEmpty() and filled it with DEMO sample data (the guard it
+      // uses for "first ever install" is just an empty company name, which a
+      // fresh company also has). Start it clean instead, with just its real
+      // name pre-filled, so a newly added company doesn't open full of fake
+      // quotations — an admin fills in real Company Settings themselves, same
+      // as any real onboarding.
+      DB = Data.blankDB();
+      DB.company.name = target.name;
+      Storage.saveLocalOnly();
+    }
+    Render.applySidebarBrand();
+    Render.renderCompanySwitcher();
+    Render.renderSidebarUser();
+    if(UI.currentView) Render.showView(UI.currentView);
+    await Data.hydrateFromCloud();
+    if(UI.currentView) Render.showView(UI.currentView);
+  },
+
+  /** Admin-only: inserts a brand-new company row (auto-generated id — the
+   *  display Name is what everyone actually reads, the id just needs to be a
+   *  safe unique FK value) then reloads the list so it appears in the
+   *  switcher right away. Enforced admin-only both by the calling UI (button
+   *  hidden from non-admins) AND by the "companies: admin inserts" RLS policy
+   *  — "จำกัดสิทธิแค่แอดมินเป็นคนทำ" — so it can't be bypassed even via a direct
+   *  API call from a modified client. */
+  async addCompany(name){
+    if(!Cloud.isEnabled()) return { ok:false, message:'ยังไม่ได้ตั้งค่า Supabase (Settings > Cloud Sync) จึงยังเพิ่มบริษัทไม่ได้' };
+    const trimmed = (name||'').trim();
+    if(!trimmed) return { ok:false, message:'กรุณากรอกชื่อบริษัท' };
+    const id = Utils.uid('co');
+    const { error } = await Cloud.client.from('companies').insert({ id, name: trimmed });
+    if(error){
+      console.error('Workspace.addCompany failed', error);
+      const msg = error.message || '';
+      let friendly;
+      if(/row-level security|permission denied/i.test(msg)){
+        friendly = 'เฉพาะ Admin เท่านั้นที่เพิ่มบริษัทได้ (ถ้าคุณเป็น Admin อยู่แล้ว ให้รัน supabase-migration-company-permissions.sql ใน Supabase SQL Editor)';
+      }else if(/relation .*companies.* does not exist|schema cache/i.test(msg)){
+        friendly = 'ยังไม่มีตาราง companies ในฐานข้อมูล — รัน supabase-migration-multi-company.sql ใน Supabase SQL Editor ก่อน';
+      }else{
+        // Surface the raw Supabase error text too — much easier to diagnose
+        // than a generic "failed" message with nothing to go on.
+        friendly = 'เพิ่มบริษัทไม่สำเร็จ: ' + (msg || 'unknown error');
+      }
+      return { ok:false, message: friendly };
+    }
+    await Workspace.loadCompanies();
+    return { ok:true, id, name: trimmed };
+  },
+
+  /** Admin > Users: "✏️ แก้ไข" on a company chip — renames a company (only
+   *  changes the label shown in the Workspace switcher / admin chip list;
+   *  does NOT touch that company's own DB.company.name used for its document
+   *  letterhead, which is managed separately under Settings — same
+   *  intentional decoupling as when a company is first created). Enforced
+   *  admin-only by the "companies: admin updates" RLS policy in
+   *  supabase-migration-company-rename.sql. */
+  async renameCompany(id, name){
+    if(!Cloud.isEnabled()) return { ok:false, message:'ยังไม่ได้ตั้งค่า Supabase (Settings > Cloud Sync)' };
+    const trimmed = (name||'').trim();
+    if(!trimmed) return { ok:false, message:'กรุณากรอกชื่อบริษัท' };
+    const { error } = await Cloud.client.from('companies').update({ name: trimmed }).eq('id', id);
+    if(error){
+      console.error('Workspace.renameCompany failed', error);
+      const msg = error.message || '';
+      let friendly;
+      if(/row-level security|permission denied/i.test(msg)){
+        friendly = 'เฉพาะ Admin เท่านั้นที่แก้ไขชื่อบริษัทได้ (ถ้าคุณเป็น Admin อยู่แล้ว ให้รัน supabase-migration-company-rename.sql ใน Supabase SQL Editor)';
+      }else{
+        friendly = 'แก้ไขชื่อบริษัทไม่สำเร็จ: ' + (msg || 'unknown error');
+      }
+      return { ok:false, message: friendly };
+    }
+    await Workspace.loadCompanies();
+    return { ok:true, id, name: trimmed };
+  },
+
+  /** Admin > Users: "🗑️ ลบ" on a company chip — deletes a company row.
+   *  Refuses client-side to delete whichever company the admin currently has
+   *  open (avoids leaving their own session pointed at a company that no
+   *  longer exists). customers/documents/document_items/activity_logs.
+   *  company_id all reference companies(id) with the default RESTRICT
+   *  behavior (no ON DELETE CASCADE), so Postgres itself refuses to delete a
+   *  company that still has real data attached — that FK error is caught
+   *  below and surfaced as a friendly message instead of a raw DB error.
+   *  Enforced admin-only by the "companies: admin deletes" RLS policy in
+   *  supabase-migration-company-rename.sql. */
+  async deleteCompany(id){
+    if(!Cloud.isEnabled()) return { ok:false, message:'ยังไม่ได้ตั้งค่า Supabase (Settings > Cloud Sync)' };
+    if(id === Workspace.getCurrentId()) return { ok:false, message:'ไม่สามารถลบบริษัทที่กำลังเปิดใช้งานอยู่ได้ — สลับไปบริษัทอื่นก่อนแล้วค่อยลบ' };
+    const { error } = await Cloud.client.from('companies').delete().eq('id', id);
+    if(error){
+      console.error('Workspace.deleteCompany failed', error);
+      const msg = error.message || '';
+      let friendly;
+      if(/row-level security|permission denied/i.test(msg)){
+        friendly = 'เฉพาะ Admin เท่านั้นที่ลบบริษัทได้ (ถ้าคุณเป็น Admin อยู่แล้ว ให้รัน supabase-migration-company-rename.sql ใน Supabase SQL Editor)';
+      }else if(/foreign key|violates/i.test(msg)){
+        friendly = 'ลบไม่ได้เพราะยังมีข้อมูล (ลูกค้า/เอกสาร) ผูกกับบริษัทนี้อยู่ในระบบ';
+      }else{
+        friendly = 'ลบบริษัทไม่สำเร็จ: ' + (msg || 'unknown error');
+      }
+      return { ok:false, message: friendly };
+    }
+    await Workspace.loadCompanies();
+    return { ok:true, id };
+  }
+};
+
 /** Baked-in default company logo (WR — resized to <=1000px, same cap as
  *  Utils.fileToDataURL uses for uploads) so a brand-new/reset install and any
  *  browser that loses its saved settings (cleared cache, new device) still shows
@@ -3534,9 +3889,34 @@ const UI = {
    2. STORAGE MODULE — localStorage persistence
    ============================================================================ */
 const Storage = {
+  /** Company-scoped localStorage key — the ONE thing that makes every other
+   *  module in this file (Documents/Customers/Products/Banks/Receipts/
+   *  Settings/counters — the entire DB blob) automatically per-company
+   *  isolated with zero changes anywhere else: DB is always loaded from and
+   *  saved to THIS key, which embeds whichever company Workspace currently
+   *  has active. See the Workspace module above. */
+  _key(companyId){
+    const id = companyId || Workspace.getCurrentId();
+    return STORAGE_KEY + '__' + id;
+  },
+  /** One-time migration: a browser that already had data under the OLD flat
+   *  'qis_db_v1' key (from before multi-company existed) gets it copied over
+   *  to the หวังรวย-scoped key the first time this runs, so nobody's existing
+   *  local-only data silently vanishes. Cheap/idempotent — the legacy key is
+   *  gone after the first run, so every call after that is a instant no-op. */
+  _migrateLegacyKey(){
+    try{
+      const legacy = localStorage.getItem(STORAGE_KEY);
+      if(!legacy) return;
+      const newKey = Storage._key(Workspace.DEFAULT_ID);
+      if(!localStorage.getItem(newKey)) localStorage.setItem(newKey, legacy);
+      localStorage.removeItem(STORAGE_KEY);
+    }catch(e){ console.error('Storage._migrateLegacyKey failed', e); }
+  },
   load(){
     try{
-      const raw = localStorage.getItem(STORAGE_KEY);
+      Storage._migrateLegacyKey();
+      const raw = localStorage.getItem(Storage._key());
       if(!raw) return null;
       return JSON.parse(raw);
     }catch(e){
@@ -3551,7 +3931,7 @@ const Storage = {
   saveLocalOnly(){
     try{
       const payload = Cloud.isEnabled() ? Storage._localCachePayload() : DB;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      localStorage.setItem(Storage._key(), JSON.stringify(payload));
     }catch(e){
       console.error('Storage.save failed', e);
       Utils.toast('บันทึกข้อมูลไม่สำเร็จ (พื้นที่จัดเก็บอาจเต็ม)', 'err');
@@ -3726,7 +4106,7 @@ const Cloud = {
       Cloud.setStatus('disabled');
       return {ok:false, message:'กรุณากรอก Supabase URL และ Anon Key ให้ครบก่อน'};
     }
-    const requiredTables = ['customers','documents','document_items','company_settings','profiles','activity_logs'];
+    const requiredTables = ['customers','documents','document_items','company_settings','profiles','activity_logs','companies'];
     const missingTables = [];
     let firstOtherError = null;
     try{
@@ -3791,8 +4171,11 @@ const Cloud = {
     const settingsToSync = Object.assign({}, DB.settings);
     delete settingsToSync.supabaseUrl;
     delete settingsToSync.supabaseKey;
+    // id doubles as the company_id — this table was already shaped "one row =
+    // one tenant", just hardcoded to a single row (id:'default'); switching the
+    // id to the active Workspace company is the whole multi-company change here.
     const row = {
-      id: 'default',
+      id: Workspace.getCurrentId(),
       data: { company: DB.company || {}, settings: settingsToSync },
       updated_at: new Date().toISOString()
     };
@@ -3800,11 +4183,12 @@ const Cloud = {
     if(error) throw error;
   },
 
-  /** Counterpart to pushCompanySettings — returns { company, settings } from the
-   *  single company_settings row, or null if nothing has been pushed yet (brand
-   *  new Supabase project). Used by Data.hydrateFromCloud(). */
+  /** Counterpart to pushCompanySettings — returns { company, settings } for the
+   *  ACTIVE workspace's company_settings row, or null if nothing has been
+   *  pushed yet for this company (brand new company / new Supabase project).
+   *  Used by Data.hydrateFromCloud(). */
   async pullCompanySettings(){
-    const { data, error } = await Cloud.client.from('company_settings').select('*').eq('id', 'default').maybeSingle();
+    const { data, error } = await Cloud.client.from('company_settings').select('*').eq('id', Workspace.getCurrentId()).maybeSingle();
     if(error) throw error;
     return (data && data.data) || null;
   },
@@ -3822,6 +4206,7 @@ const Cloud = {
       record_id: entry.recordId || '', record_name: entry.recordName || '',
       before_data: entry.beforeData || null, after_data: entry.afterData || null,
       note: entry.note || '', user_agent: entry.userAgent || '',
+      company_id: Workspace.getCurrentId(),
       created_at: new Date(entry.createdAt || Date.now()).toISOString()
     };
     const { error } = await Cloud.client.from('activity_logs').insert(row);
@@ -3830,12 +4215,13 @@ const Cloud = {
 
   /** Fetches the most recent activity log entries straight from Supabase (source of
    *  truth for full history — the local DB.activityLogs copy is deliberately capped,
-   *  see ACTIVITY_LOG_LOCAL_CAP) for the Activity Logs page. RLS already restricts a
-   *  non-admin to only their own rows, so no extra filtering is needed here — it's
-   *  enforced by the database itself, not just by the app choosing not to ask. */
+   *  see ACTIVITY_LOG_LOCAL_CAP) for the Activity Logs page, scoped to the ACTIVE
+   *  workspace only. RLS already restricts a non-admin to only their own rows on
+   *  top of that — it's enforced by the database itself, not just by the app
+   *  choosing not to ask. */
   async pullActivityLogs(limit){
     const { data, error } = await Cloud.client.from('activity_logs')
-      .select('*').order('created_at', {ascending:false}).limit(limit || 500);
+      .select('*').eq('company_id', Workspace.getCurrentId()).order('created_at', {ascending:false}).limit(limit || 500);
     if(error) throw error;
     return (data||[]).map(row=>({
       id: row.id, userId: row.user_id, userName: row.user_name, userEmail: row.user_email,
@@ -3849,8 +4235,9 @@ const Cloud = {
   },
 
   async pushCustomers(){
+    const companyId = Workspace.getCurrentId();
     const rows = (DB.customers||[]).map(c=>({
-      id: c.id, name: c.name||'', address: c.address||'', tax_id: c.taxId||'',
+      id: c.id, company_id: companyId, name: c.name||'', address: c.address||'', tax_id: c.taxId||'',
       contact: c.contact||'', phone: c.phone||'', email: c.email||'',
       prepared_by_name: c.preparedByName||'', prepared_signature: c.preparedSignature||'',
       authorized_by_name: c.authorizedByName||'', authorized_signature: c.authorizedSignature||'',
@@ -3860,8 +4247,11 @@ const Cloud = {
       const { error } = await Cloud.client.from('customers').upsert(rows, {onConflict:'id'});
       if(error) throw error;
     }
-    // remove cloud rows for customers that were deleted locally
-    const { data: remote, error: selErr } = await Cloud.client.from('customers').select('id');
+    // Remove cloud rows for THIS company's customers that were deleted locally —
+    // MUST stay scoped by company_id, or switching to a workspace with fewer (or
+    // zero) local customers would look like "everyone else got deleted" and wipe
+    // every OTHER company's customers out of Supabase too.
+    const { data: remote, error: selErr } = await Cloud.client.from('customers').select('id').eq('company_id', companyId);
     if(selErr) throw selErr;
     const localIds = new Set((DB.customers||[]).map(c=>c.id));
     const toDelete = (remote||[]).map(r=>r.id).filter(id=> !localIds.has(id));
@@ -3881,10 +4271,11 @@ const Cloud = {
   },
 
   async pushDocuments(){
+    const companyId = Workspace.getCurrentId();
     const docs = DB.documents || [];
     if(docs.length){
       const rows = docs.map(d=>({
-        id: d.id, doc_number: d.docNumber, type: d.type, status: d.status,
+        id: d.id, company_id: companyId, doc_number: d.docNumber, type: d.type, status: d.status,
         customer_id: d.customerId || null,
         doc_date: d.date || null, due_date: d.dueDate || null,
         data: Cloud._docDataBlob(d),
@@ -3893,8 +4284,9 @@ const Cloud = {
       const { error } = await Cloud.client.from('documents').upsert(rows, {onConflict:'id'});
       if(error) throw error;
     }
-    // remove cloud documents deleted locally (document_items cascade-delete via FK)
-    const { data: remoteDocs, error: selErr } = await Cloud.client.from('documents').select('id');
+    // remove cloud documents deleted locally (document_items cascade-delete via FK) —
+    // scoped to this company only, same cross-company-wipe reasoning as pushCustomers.
+    const { data: remoteDocs, error: selErr } = await Cloud.client.from('documents').select('id').eq('company_id', companyId);
     if(selErr) throw selErr;
     const localIds = new Set(docs.map(d=>d.id));
     const toDelete = (remoteDocs||[]).map(r=>r.id).filter(id=> !localIds.has(id));
@@ -3912,7 +4304,7 @@ const Cloud = {
       docs.forEach(d=>{
         (d.items||[]).forEach((it, idx)=>{
           allItems.push({
-            document_id: d.id, seq: idx+1, description: it.description||'',
+            document_id: d.id, company_id: companyId, seq: idx+1, description: it.description||'',
             qty: Utils.num(it.qty), unit: it.unit||'', unit_price: Utils.num(it.price),
             discount_pct: Utils.num(it.discountPct), amount: Utils.num(it.amount)
           });
@@ -3923,21 +4315,26 @@ const Cloud = {
         if(insErr) throw insErr;
       }
     }else{
-      // no local documents at all — clear every remote item row too
-      await Cloud.client.from('document_items').delete().not('document_id','is', null);
+      // no local documents at all for THIS company — clear only THIS company's
+      // remote item rows. MUST stay scoped (eq company_id, not a blanket delete),
+      // or switching to an empty/new company workspace would wipe every other
+      // company's line items out of Supabase too.
+      await Cloud.client.from('document_items').delete().eq('company_id', companyId);
     }
   },
 
-  /** Pulls customers + documents + items from Supabase and reshapes them back into
-   *  this app's normal in-memory document/customer object shape (same shape
-   *  Data.blankDocument()/Documents.save() already expect — nothing downstream,
-   *  e.g. Editor/Render/Reports, needs to know the data came from the cloud). */
+  /** Pulls customers + documents + items from Supabase for the ACTIVE workspace
+   *  only, and reshapes them back into this app's normal in-memory document/
+   *  customer object shape (same shape Data.blankDocument()/Documents.save()
+   *  already expect — nothing downstream, e.g. Editor/Render/Reports, needs to
+   *  know the data came from the cloud or which company it belongs to). */
   async pullAll(){
     if(!Cloud.isEnabled()) return null;
+    const companyId = Workspace.getCurrentId();
     const [custRes, docRes, itemRes] = await Promise.all([
-      Cloud.client.from('customers').select('*'),
-      Cloud.client.from('documents').select('*'),
-      Cloud.client.from('document_items').select('*').order('seq', {ascending:true})
+      Cloud.client.from('customers').select('*').eq('company_id', companyId),
+      Cloud.client.from('documents').select('*').eq('company_id', companyId),
+      Cloud.client.from('document_items').select('*').eq('company_id', companyId).order('seq', {ascending:true})
     ]);
     if(custRes.error) throw custRes.error;
     if(docRes.error) throw docRes.error;
@@ -4178,6 +4575,29 @@ const Auth = {
       .update({ role, updated_at: new Date().toISOString() }).eq('id', userId);
     if(error){ console.error('Auth.setUserRole failed', error); return false; }
     return true;
+  },
+
+  /** Admin-only: sets exactly which companies (Workspace) a user may switch
+   *  to — see the "กำหนดสิทธิบริษัท" request. Only matters for non-admin users:
+   *  Admin always has access to every company regardless of this list (see
+   *  Auth.canAccessCompany below and the matching current_user_allowed_companies()
+   *  SECURITY DEFINER function in supabase-migration-company-permissions.sql,
+   *  which enforces the same rule at the database level, not just in the UI). */
+  async setUserCompanies(userId, companyIds){
+    if(!Cloud.isEnabled()) return false;
+    const { error } = await Cloud.client.from('profiles')
+      .update({ allowed_company_ids: companyIds || [], updated_at: new Date().toISOString() }).eq('id', userId);
+    if(error){ console.error('Auth.setUserCompanies failed', error); return false; }
+    return true;
+  },
+
+  /** Whether the CURRENTLY logged-in user may switch to the given company id.
+   *  Admin bypasses the allow-list entirely (same rule as every other
+   *  admin-always-full-access permission in this app). */
+  canAccessCompany(companyId){
+    if(Auth.isAdmin()) return true;
+    const allowed = Auth.profile && Auth.profile.allowed_company_ids;
+    return Array.isArray(allowed) && allowed.includes(companyId);
   },
 
   /** Admin-only: creates a brand-new login account (username+password) directly
@@ -6014,8 +6434,8 @@ const DOC_LIST_TYPE_ALIASES = { quotations: 'QT', invoices: 'INV' };
 // deliberately NOT configurable through that UI (always gets every view here) so an
 // admin can never accidentally lock themselves out of their own Settings/Admin pages.
 const DEFAULT_ROLE_VIEW_ACCESS = {
-  admin:      ['dashboard','editor','documents','quotations','invoices','payments','customers','products','banks','reports','approvals','activity-logs','settings'],
-  accounting: ['dashboard','editor','documents','quotations','invoices','payments','customers','products','banks','reports','approvals','activity-logs','settings'],
+  admin:      ['dashboard','editor','documents','quotations','invoices','payments','company-info','customers','products','banks','reports','approvals','activity-logs','settings'],
+  accounting: ['dashboard','editor','documents','quotations','invoices','payments','company-info','customers','products','banks','reports','approvals','activity-logs','settings'],
   authorized: ['dashboard','reports','approvals','activity-logs'],
   preparer:   ['dashboard','editor','documents','quotations','invoices','customers','products','reports','activity-logs']
 };
@@ -6031,6 +6451,7 @@ const CONFIGURABLE_VIEWS = [
   { id:'quotations',    label:'ใบเสนอราคาทั้งหมด' },
   { id:'invoices',      label:'ใบแจ้งหนี้ทั้งหมด' },
   { id:'payments',      label:'รับชำระเงิน' },
+  { id:'company-info',  label:'ข้อมูลบริษัท' },
   { id:'customers',     label:'Customers' },
   { id:'products',      label:'Products/Services' },
   { id:'banks',         label:'Bank Accounts' },
@@ -6099,7 +6520,7 @@ const Render = {
     const titles = {
       dashboard:'Dashboard', editor: UI.editingDocId ? 'แก้ไขเอกสาร' : 'สร้างเอกสารใหม่',
       documents:'Documents', quotations:'ใบเสนอราคาทั้งหมด', invoices:'ใบแจ้งหนี้ทั้งหมด',
-      customers:'Customers', products:'Products / Services',
+      'company-info':'ข้อมูลบริษัท', customers:'Customers', products:'Products / Services',
       payments:'รับชำระเงิน',
       banks:'Bank Accounts', reports:'Reports', approvals:'รายการรออนุมัติ',
       'admin-users':'Admin — Users', 'activity-logs':'ประวัติการใช้งาน', settings:'Settings'
@@ -6124,9 +6545,9 @@ const Render = {
     if(viewName === 'reports') Reports.init();
     if(viewName === 'payments') Render.paymentsView();
     if(viewName === 'approvals') Render.approvalsView();
-    if(viewName === 'admin-users'){ Render.adminUsersView(); Render.renderRolePermissionsTable(); }
+    if(viewName === 'admin-users'){ Render.adminUsersView(); Render.renderRolePermissionsTable(); Workspace.loadCompanies().then(Render.renderAdminCompanyList); }
     if(viewName === 'activity-logs') Render.activityLogsView();
-    if(viewName === 'settings') Render.settingsForm();
+    if(viewName === 'settings' || viewName === 'company-info') Render.settingsForm();
     Render.updateApprovalsBadge();
     Notifications.updateBadge();
   },
@@ -6145,7 +6566,7 @@ const Render = {
     if(adminNav) adminNav.style.display = Auth.isAdmin() ? '' : 'none';
 
     const allowed = Auth.allowedViews();
-    ['dashboard','editor','quotations','invoices','payments','customers','products','banks','reports','approvals','activity-logs','settings'].forEach(view=>{
+    ['dashboard','editor','quotations','invoices','payments','company-info','customers','products','banks','reports','approvals','activity-logs','settings'].forEach(view=>{
       const el = document.querySelector('#sidebar-nav .nav-item[data-view="'+view+'"]');
       if(el) el.style.display = allowed.includes(view) ? '' : 'none';
     });
@@ -6605,7 +7026,10 @@ const Render = {
           <button class="btn btn-sm btn-primary" onclick="Actions.saveUserRole('${p.id}')">บันทึก</button>
         </td>
         <td>${p.created_at ? Utils.formatDateThai(p.created_at.slice(0,10)) : '-'}</td>
-        <td><button class="btn btn-sm" onclick="Modals.openResetPassword('${p.id}')">🔑 รีเซ็ตรหัสผ่าน</button></td>
+        <td>
+          <button class="btn btn-sm" onclick="Modals.openResetPassword('${p.id}')">🔑 รีเซ็ตรหัสผ่าน</button>
+          <button class="btn btn-sm" onclick="Modals.openUserCompanies('${p.id}')">🏢 บริษัท</button>
+        </td>
       </tr>
     `).join('');
   },
@@ -6848,6 +7272,50 @@ const Render = {
       badge.textContent = name ? name.slice(0,2) : 'QI';
       badge.classList.remove('has-logo');
     }
+  },
+
+  /** Populates the sidebar's company-switcher <select> with whichever
+   *  companies the CURRENTLY logged-in user is allowed to see
+   *  (Workspace.allowedList() — Admin sees all, everyone else sees their own
+   *  allow-list), marking whichever one is currently active. Called once
+   *  after auth resolves (AuthUI.afterAuthResolved) and again after every
+   *  Workspace.switchTo() so the dropdown always reflects the DB actually
+   *  loaded. */
+  renderCompanySwitcher(){
+    const sel = document.getElementById('company-switcher-select');
+    if(!sel) return;
+    const currentId = Workspace.getCurrentId();
+    const options = Workspace.allowedList();
+    sel.innerHTML = options.map(c=>
+      `<option value="${c.id}" ${c.id === currentId ? 'selected' : ''}>${Utils.escapeHtml(c.name)}</option>`
+    ).join('');
+    // Auto-shrink the font so long company names ("บริษัท เอคโคบลิทซ์ สตูดิโอ
+    // จำกัด") never get clipped by the sidebar's fixed width — sized off the
+    // LONGEST name in the list (not just the selected one) so switching to a
+    // longer name later never overflows either.
+    const longest = options.reduce((max,c)=> Math.max(max, (c.name||'').length), 0);
+    let fontSize = 13.5;
+    if(longest > 28) fontSize = 10;
+    else if(longest > 24) fontSize = 11;
+    else if(longest > 20) fontSize = 12.5;
+    sel.style.fontSize = fontSize + 'px';
+  },
+
+  /** Admin > Users: "จัดการบริษัท (Workspace)" card — lists every company that
+   *  exists (Workspace.list, not filtered by allowed_company_ids, since an
+   *  Admin viewing this page can already see everything). Each chip has
+   *  inline ✏️ (rename) and 🗑️ (delete) buttons — wired via a single
+   *  delegated click listener on #admin-company-list in wireEvents, since
+   *  this list re-renders every time a company is added/edited/deleted. */
+  renderAdminCompanyList(){
+    const el = document.getElementById('admin-company-list');
+    if(!el) return;
+    el.innerHTML = Workspace.list.map(c=>
+      `<span class="badge badge-approved company-chip">${Utils.escapeHtml(c.name)}`+
+      `<button type="button" class="company-chip-btn" data-action="rename-company" data-company-id="${c.id}" data-company-name="${Utils.escapeHtml(c.name)}" title="แก้ไขชื่อบริษัท" aria-label="แก้ไขชื่อบริษัท ${Utils.escapeHtml(c.name)}">✏️</button>`+
+      `<button type="button" class="company-chip-btn" data-action="delete-company" data-company-id="${c.id}" data-company-name="${Utils.escapeHtml(c.name)}" title="ลบบริษัท" aria-label="ลบบริษัท ${Utils.escapeHtml(c.name)}">🗑️</button>`+
+      `</span>`
+    ).join('') || '<span class="muted">ยังไม่มีบริษัทในระบบ</span>';
   },
 
   /* ---------------------------- DASHBOARD ---------------------------- */
@@ -8470,6 +8938,44 @@ const Modals = {
     Modals.open('modal-admin-create-user');
   },
 
+  /** Admin > Users: "+ เพิ่มบริษัท" — just a name field, id is auto-generated
+   *  (see Workspace.addCompany). */
+  openAddCompany(){
+    document.getElementById('add-company-name').value = '';
+    Modals.open('modal-add-company');
+  },
+
+  /** Admin > Users: "✏️" on a company chip — pre-fills the rename modal with
+   *  that company's current name; Modals._renameCompanyTarget holds which
+   *  company id Actions.renameCompany() should update on submit. */
+  openRenameCompany(id, name){
+    Modals._renameCompanyTarget = id;
+    document.getElementById('rename-company-name').value = name || '';
+    Modals.open('modal-rename-company');
+  },
+
+  /** Admin > Users: opens the "จำกัดบริษัทที่เข้าถึงได้" modal for one specific
+   *  user, pre-checking whichever companies are already in their
+   *  allowed_company_ids. Refreshes Workspace.list first so a company added
+   *  moments ago in another tab still shows up here. */
+  async openUserCompanies(userId){
+    const p = (UI._adminProfilesCache || []).find(x=> x.id === userId);
+    if(!p){ Utils.toast('ไม่พบผู้ใช้งานนี้ — ลองรีเฟรชรายชื่อแล้วลองใหม่', 'err'); return; }
+    await Workspace.loadCompanies();
+    Modals._userCompaniesTarget = p;
+    document.getElementById('user-companies-label').textContent =
+      `กำหนดบริษัทที่เข้าถึงได้สำหรับ: ${p.display_name || p.username} (username: ${p.username || '-'})`;
+    const allowed = new Set(Array.isArray(p.allowed_company_ids) ? p.allowed_company_ids : []);
+    const list = document.getElementById('user-companies-checklist');
+    list.innerHTML = Workspace.list.map(c=> `
+      <label style="display:flex;align-items:center;gap:8px;font-weight:500;">
+        <input type="checkbox" class="user-company-check" value="${c.id}" ${allowed.has(c.id) ? 'checked' : ''}>
+        ${Utils.escapeHtml(c.name)}
+      </label>
+    `).join('') || '<div class="muted">ยังไม่มีบริษัทในระบบ</div>';
+    Modals.open('modal-user-companies');
+  },
+
   /** Simple random password generator — mixes upper/lower/digits, long enough to
    *  be reasonable as a temporary password the admin hands off and the user
    *  changes later (this app has no self-service "change my password" flow yet,
@@ -9575,6 +10081,107 @@ const Actions = {
       }
     }finally{
       if(btn){ btn.disabled = false; btn.textContent = '➕ สร้างผู้ใช้งาน'; }
+    }
+  },
+
+  /** Admin > Users: "+ เพิ่มบริษัท" submit handler — calls Workspace.addCompany(),
+   *  which is itself blocked for non-admins by the "companies: admin inserts"
+   *  RLS policy even if this button were somehow reached without admin rights. */
+  async addCompany(){
+    const name = (document.getElementById('add-company-name').value || '').trim();
+    if(!name){ Utils.toast('กรุณากรอกชื่อบริษัท', 'err'); return; }
+    const btn = document.getElementById('btn-add-company-submit');
+    if(btn){ btn.disabled = true; btn.textContent = 'กำลังเพิ่ม...'; }
+    try{
+      const result = await Workspace.addCompany(name);
+      if(result.ok){
+        Utils.toast(`เพิ่มบริษัท "${name}" สำเร็จ`, 'ok');
+        ActivityLog.log('เพิ่มบริษัทใหม่ (Admin)', 'Auth', { recordId: result.id, recordName: name });
+        Modals.close('modal-add-company');
+        Render.renderAdminCompanyList();
+        Render.renderCompanySwitcher();
+      }else{
+        Utils.toast(result.message || 'เพิ่มบริษัทไม่สำเร็จ', 'err');
+      }
+    }finally{
+      if(btn){ btn.disabled = false; btn.textContent = '➕ เพิ่มบริษัท'; }
+    }
+  },
+
+  /** Admin > Users: "✏️" chip submit — calls Workspace.renameCompany(), which
+   *  is itself blocked for non-admins by the "companies: admin updates" RLS
+   *  policy even if this button were somehow reached without admin rights. */
+  async renameCompany(){
+    const id = Modals._renameCompanyTarget;
+    const name = (document.getElementById('rename-company-name').value || '').trim();
+    if(!id) return;
+    if(!name){ Utils.toast('กรุณากรอกชื่อบริษัท', 'err'); return; }
+    const btn = document.getElementById('btn-rename-company-submit');
+    if(btn){ btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; }
+    try{
+      const result = await Workspace.renameCompany(id, name);
+      if(result.ok){
+        Utils.toast(`แก้ไขชื่อบริษัทเป็น "${name}" สำเร็จ`, 'ok');
+        ActivityLog.log('แก้ไขชื่อบริษัท (Admin)', 'Auth', { recordId: id, recordName: name });
+        Modals.close('modal-rename-company');
+        Render.renderAdminCompanyList();
+        Render.renderCompanySwitcher();
+        Render.applySidebarBrand();
+      }else{
+        Utils.toast(result.message || 'แก้ไขชื่อบริษัทไม่สำเร็จ', 'err');
+      }
+    }finally{
+      if(btn){ btn.disabled = false; btn.textContent = '💾 บันทึก'; }
+    }
+  },
+
+  /** Admin > Users: "🗑️" chip — confirm then call Workspace.deleteCompany().
+   *  Workspace.deleteCompany() itself refuses to delete the admin's own
+   *  currently-active company, and the DB refuses (FK RESTRICT) to delete any
+   *  company that still has customers/documents attached — both come back as
+   *  a friendly toast message via result.message. */
+  deleteCompany(id, name){
+    Utils.confirmDialog(
+      'ลบบริษัท',
+      `ยืนยันลบ "${name}" ออกจากระบบ? การลบทำได้เฉพาะบริษัทที่ยังไม่มีข้อมูล (ลูกค้า/เอกสาร) ผูกอยู่เท่านั้น`,
+      async ()=>{
+        const result = await Workspace.deleteCompany(id);
+        if(result.ok){
+          Utils.toast(`ลบบริษัท "${name}" แล้ว`, 'ok');
+          ActivityLog.log('ลบบริษัท (Admin)', 'Auth', { recordId: id, recordName: name });
+          Render.renderAdminCompanyList();
+          Render.renderCompanySwitcher();
+        }else{
+          Utils.toast(result.message || 'ลบบริษัทไม่สำเร็จ', 'err');
+        }
+      }
+    );
+  },
+
+  /** Admin > Users: "จำกัดบริษัทที่เข้าถึงได้" submit handler — reads every
+   *  checked box in the modal and saves it as that user's allowed_company_ids
+   *  via Auth.setUserCompanies(). */
+  async saveUserCompanies(){
+    const p = Modals._userCompaniesTarget;
+    if(!p){ Utils.toast('ไม่พบผู้ใช้งานนี้', 'err'); return; }
+    const ids = Array.from(document.querySelectorAll('.user-company-check:checked')).map(el=> el.value);
+    const btn = document.getElementById('btn-user-companies-save');
+    if(btn){ btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; }
+    try{
+      const ok = await Auth.setUserCompanies(p.id, ids);
+      if(ok){
+        Utils.toast('บันทึกสิทธิ์บริษัทสำเร็จ', 'ok');
+        ActivityLog.log('กำหนดสิทธิ์บริษัทของผู้ใช้ (Admin)', 'Auth', {
+          recordId: p.id, recordName: p.display_name || p.username,
+          note: ids.length ? ids.join(', ') : '(ไม่มีบริษัทที่เข้าถึงได้)'
+        });
+        Modals.close('modal-user-companies');
+        Render.adminUsersView();
+      }else{
+        Utils.toast('บันทึกสิทธิ์บริษัทไม่สำเร็จ', 'err');
+      }
+    }finally{
+      if(btn){ btn.disabled = false; btn.textContent = '💾 บันทึก'; }
     }
   },
 
@@ -11310,6 +11917,14 @@ const AuthUI = {
     if(!Auth.isLoggedIn()){ AuthUI.showAuthScreen('login'); return; }
     if(!Auth.profile || Auth.profile.role === 'pending'){ AuthUI.showAuthScreen('pending'); return; }
 
+    // Now that we know this user's role + allowed_company_ids (unknowable at
+    // boot, before login), confirm the company loaded at boot is one they're
+    // actually allowed to use — falls back to their first allowed company and
+    // reloads the local DB for it if not (see Workspace.reconcileAfterAuth).
+    await Workspace.reconcileAfterAuth();
+    Render.applySidebarBrand();
+    Render.renderCompanySwitcher();
+
     AuthUI.showAppShell();
     // Post-login welcome popup (space-themed 4-step workflow infographic) — only on
     // an actual interactive login/signup (flag set in handleLogin/handleSignup just
@@ -11626,6 +12241,12 @@ function wireEvents(){
 
   // ---- Settings: main save + running-number reset ----
   document.getElementById('btn-save-settings').addEventListener('click', SettingsMod.save);
+  // "ข้อมูลบริษัท" now lives on its own Master Data page (view-company-info) —
+  // its Save button reuses the SAME SettingsMod.save() as the main Settings
+  // page (id-based field reads, not DOM-location-based, so this is safe and
+  // just re-saves the other Settings fields' current unchanged values too,
+  // same as clicking Save from Settings itself would).
+  document.getElementById('btn-save-company-info').addEventListener('click', SettingsMod.save);
   document.getElementById('btn-reset-qt-number').addEventListener('click', ()=>{
     Utils.confirmDialog('รีเซ็ตเลขที่ QT', 'ต้องการรีเซ็ตเลขที่ใบเสนอราคาประจำเดือนนี้กลับเป็น 0 หรือไม่?', ()=>{
       Documents.resetMonthlyCounter('QT');
@@ -11686,6 +12307,31 @@ function wireEvents(){
   });
   document.getElementById('btn-admin-new-user-submit').addEventListener('click', Actions.adminCreateUser);
 
+  // ---- Admin > Users: companies (Workspace) management ----
+  document.getElementById('btn-open-add-company').addEventListener('click', Modals.openAddCompany);
+  document.getElementById('btn-add-company-submit').addEventListener('click', Actions.addCompany);
+  document.getElementById('btn-refresh-companies').addEventListener('click', ()=>{
+    Workspace.loadCompanies().then(Render.renderAdminCompanyList);
+  });
+  document.getElementById('btn-rename-company-submit').addEventListener('click', Actions.renameCompany);
+  // Delegated click for the ✏️/🗑️ buttons inside each company chip — the
+  // chips themselves are rebuilt on every renderAdminCompanyList() call, so a
+  // single listener on the (static) parent avoids re-binding per chip.
+  document.getElementById('admin-company-list').addEventListener('click', (e)=>{
+    const btn = e.target.closest('.company-chip-btn');
+    if(!btn) return;
+    const id = btn.dataset.companyId;
+    const name = btn.dataset.companyName;
+    if(btn.dataset.action === 'rename-company') Modals.openRenameCompany(id, name);
+    else if(btn.dataset.action === 'delete-company') Actions.deleteCompany(id, name);
+  });
+  document.getElementById('btn-user-companies-save').addEventListener('click', Actions.saveUserCompanies);
+
+  // ---- Company (Workspace) switcher ----
+  document.getElementById('company-switcher-select').addEventListener('change', (e)=>{
+    Workspace.switchTo(e.target.value);
+  });
+
   // ---- Auth screen (login / sign-up / pending / Supabase config) ----
   document.getElementById('btn-auth-login').addEventListener('click', AuthUI.handleLogin);
   document.getElementById('btn-auth-signup').addEventListener('click', AuthUI.handleSignup);
@@ -11740,6 +12386,7 @@ async function initApp(){
   Data.init();
   SettingsMod.applyTheme();
   Render.applySidebarBrand();
+  Render.renderCompanySwitcher();
   wireEvents();
   await Auth.restoreSession();
   await AuthUI.afterAuthResolved();

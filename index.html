@@ -1128,7 +1128,7 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
 .summary-row.grand .val{color:var(--gray-900);}
 .summary-row.net{background:var(--blue-accent-soft);padding:11px 12px;border-radius:var(--radius-sm);border-bottom:none;}
 .summary-row.net .val{color:var(--blue-accent);font-size:16px;}
-.summary-row input[type=number]{width:70px;padding:5px 7px;border:1px solid var(--gray-200);border-radius:7px;background:var(--gray-50);text-align:right;}
+.summary-row input[type=number]{width:70px;padding:5px 7px;border:1px solid var(--gray-200);border-radius:7px;background:var(--gray-50);color:var(--gray-900);text-align:right;}
 .pct-inline{display:flex;align-items:center;gap:4px;}
 .info-ic{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--gray-200);color:var(--gray-700);font-size:10px;font-style:normal;font-weight:700;cursor:help;margin-left:3px;}
 .info-ic:hover{background:var(--blue-accent);color:#fff;}
@@ -1294,6 +1294,56 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
 .report-kpi.accent-green .rk-value{color:var(--green);}
 .report-kpi.accent-red .rk-value{color:var(--red);}
 .report-kpi.accent-amber .rk-value{color:var(--amber);}
+
+/* ==========================================================================
+   3b-2. SALES REPORT DASHBOARD ("📊 Sales Report") — executive-facing tab
+   layered on top of the 7 existing Reports tabs (spec: "ดู ยอดขาย + สถานะเอกสาร
+   เท่านั้น ไม่ต้องทำ Report ภาษีหรือบัญชีเชิงลึก"). Reuses .report-kpi-grid /
+   .bar-chart / .data-table / .badge-* everywhere it can; the rules below are
+   only the genuinely new widgets this tab needed: icon KPI cards, a pipeline
+   flow, a horizontal status-breakdown bar, and a top-customer ranking list.
+   ========================================================================== */
+.report-kpi-grid.salesdash-kpi{grid-template-columns:repeat(3,1fr);}
+@media (max-width:900px){.report-kpi-grid.salesdash-kpi{grid-template-columns:1fr 1fr;}}
+.report-kpi.icon-card{display:flex;align-items:flex-start;gap:12px;animation:kpiPop .35s ease backwards;}
+.report-kpi.icon-card:nth-child(1){animation-delay:.02s;}
+.report-kpi.icon-card:nth-child(2){animation-delay:.06s;}
+.report-kpi.icon-card:nth-child(3){animation-delay:.10s;}
+.report-kpi.icon-card:nth-child(4){animation-delay:.14s;}
+.report-kpi.icon-card:nth-child(5){animation-delay:.18s;}
+.report-kpi.icon-card:nth-child(6){animation-delay:.22s;}
+.report-kpi .rk-icon{font-size:20px;width:38px;height:38px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:10px;background:rgba(79,195,247,0.14);}
+.report-kpi.accent-green .rk-icon{background:rgba(52,199,123,0.16);}
+.report-kpi.accent-red .rk-icon{background:rgba(239,91,86,0.16);}
+.report-kpi.accent-amber .rk-icon{background:rgba(235,168,63,0.16);}
+@keyframes kpiPop{from{opacity:0;transform:translateY(8px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
+@media (prefers-reduced-motion:reduce){.report-kpi.icon-card{animation:none;}}
+
+/* Sales Pipeline — Quotation → Approved → Invoice → Paid (spec section 4) */
+.sales-pipeline{display:flex;gap:0;margin:4px 0 18px;flex-wrap:wrap;}
+.pipeline-stage{flex:1;min-width:140px;padding:0 14px;position:relative;}
+.pipeline-stage:not(:last-child)::after{content:'→';position:absolute;right:-4px;top:14px;color:var(--gray-500);font-size:15px;}
+.pipeline-stage .ps-label{font-size:11.5px;color:var(--gray-500);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
+.pipeline-stage .ps-count{font-size:24px;font-weight:800;color:var(--gray-900);margin:4px 0 8px;}
+.pipeline-stage .ps-bar-track{height:7px;border-radius:6px;background:var(--gray-200);overflow:hidden;}
+.pipeline-stage .ps-bar-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--blue-accent),#8b6ef6);transition:width .5s ease;}
+
+/* Chart 1 — Document Status breakdown, horizontal bars colored to match the
+   same .badge-* palette used in the detail table below (spec section 5). */
+.status-breakdown{display:flex;flex-direction:column;gap:9px;margin-bottom:16px;}
+.status-breakdown .sb-row{display:grid;grid-template-columns:130px 1fr 46px;align-items:center;gap:10px;font-size:12.5px;}
+.status-breakdown .sb-label{color:var(--gray-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.status-breakdown .sb-track{height:10px;border-radius:6px;background:var(--gray-200);overflow:hidden;}
+.status-breakdown .sb-fill{height:100%;border-radius:6px;transition:width .5s ease;}
+.status-breakdown .sb-count{text-align:right;font-weight:700;color:var(--gray-900);font-variant-numeric:tabular-nums;}
+
+/* Top Customer ranking widget (spec section 8) */
+.top-customer-list{display:flex;flex-direction:column;gap:8px;}
+.top-customer-row{display:flex;align-items:center;gap:12px;padding:9px 12px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius-sm);}
+.top-customer-row .tc-rank{width:26px;height:26px;border-radius:50%;background:var(--blue-accent-soft);color:var(--blue-accent);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;}
+.top-customer-row:nth-child(1) .tc-rank{background:rgba(235,168,63,0.22);color:var(--amber);}
+.top-customer-row .tc-name{flex:1;font-weight:600;color:var(--gray-900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.top-customer-row .tc-amount{font-weight:800;color:var(--green);white-space:nowrap;}
 
 /* ==========================================================================
    3c. RECEIVE PAYMENT ("รับชำระเงิน") — button/card, verification checklist,
@@ -2227,6 +2277,7 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
       <section class="view" id="view-reports">
         <div class="card" style="padding-bottom:14px;">
           <div class="report-tabs" id="report-tabs">
+            <button class="report-tab" data-report="salesdash">📊 Sales Report</button>
             <button class="report-tab" data-report="sales">ภาพรวมยอดขาย</button>
             <button class="report-tab" data-report="outstanding">ลูกหนี้และยอดค้างชำระ</button>
             <button class="report-tab" data-report="docstatus">สถานะเอกสาร</button>
@@ -2234,6 +2285,83 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
             <button class="report-tab" data-report="custprod">ลูกค้าและสินค้า/บริการ</button>
             <button class="report-tab" data-report="monthly">สรุปรายเดือน</button>
             <button class="report-tab" data-report="receiptsummary">รายงานสรุปรายรับ</button>
+          </div>
+        </div>
+
+        <!-- ---------- 0. SALES REPORT DASHBOARD (Executive) ----------
+             Spec: "สร้าง Report สำหรับผู้บริหารและฝ่ายบัญชี เพื่อดู ยอดขาย + สถานะเอกสาร
+             เท่านั้น ไม่ต้องทำ Report ภาษีหรือบัญชีเชิงลึก". Its own tab, its own render/
+             export functions (Reports.renderSalesDashReport / exportSalesDashExcel /
+             exportSalesDashPDF) — none of the 7 tabs below or any Quotation/Invoice
+             logic elsewhere in the app were touched to add this. -->
+        <div class="report-panel" id="report-panel-salesdash">
+          <div class="card">
+            <div class="card-title">Sales Report Dashboard — แดชบอร์ดรายงานยอดขาย
+              <span class="muted" style="font-weight:400;font-size:11.5px;">สำหรับผู้บริหารและฝ่ายบัญชี — ยอดขาย + สถานะเอกสาร</span>
+            </div>
+            <div class="toolbar" style="margin-bottom:14px;">
+              <div class="field" style="margin:0;min-width:170px;"><label>บริษัท</label>
+                <select id="rpt-salesdash-company"></select>
+              </div>
+              <div class="field" style="margin:0;min-width:120px;"><label>ช่วงเวลา</label>
+                <select id="rpt-salesdash-period">
+                  <option value="custom" selected>กำหนดเอง</option>
+                  <option value="month">เดือนนี้</option>
+                  <option value="year">ปีนี้</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0;"><label>จากวันที่</label><input type="date" id="rpt-salesdash-from"></div>
+              <div class="field" style="margin:0;"><label>ถึงวันที่</label><input type="date" id="rpt-salesdash-to"></div>
+              <div class="field" style="margin:0;min-width:160px;"><label>ลูกค้า</label><select id="rpt-salesdash-customer"><option value="">ทุกลูกค้า</option></select></div>
+              <div class="field" style="margin:0;min-width:150px;"><label>สถานะเอกสาร</label>
+                <select id="rpt-salesdash-status">
+                  <option value="">ทั้งหมด</option>
+                  <option value="Draft">Draft</option>
+                  <option value="PendingApproval">Pending Approval</option>
+                  <option value="Approved">Approved</option>
+                  <option value="INV_CREATED">Invoice Created</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0;min-width:180px;"><label>ค้นหา (เลขที่ / ลูกค้า)</label><input type="text" id="rpt-salesdash-search" placeholder="พิมพ์เพื่อค้นหาแบบเรียลไทม์..."></div>
+              <div class="spacer"></div>
+              <button class="btn btn-sm" onclick="Reports.render('salesdash')">🔍 Search</button>
+              <button class="btn btn-sm" onclick="Reports.exportSalesDashExcel()">📥 Export Excel</button>
+              <button class="btn btn-sm" onclick="Reports.exportSalesDashPDF()">📄 Export PDF</button>
+            </div>
+
+            <div class="report-kpi-grid salesdash-kpi" id="salesdash-kpi-grid"></div>
+
+            <div class="card-title" style="font-size:13px;margin-top:18px;">Sales Pipeline</div>
+            <div class="sales-pipeline" id="salesdash-pipeline"></div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:6px;">
+              <div>
+                <div class="card-title" style="font-size:13px;">Document Status</div>
+                <div class="status-breakdown" id="salesdash-status-chart"></div>
+              </div>
+              <div>
+                <div class="card-title" style="font-size:13px;">Monthly Sales</div>
+                <div class="bar-chart" id="salesdash-monthly-chart"></div>
+              </div>
+            </div>
+
+            <div class="card-title" style="font-size:13px;margin-top:8px;">Top Customer</div>
+            <div class="top-customer-list" id="salesdash-top-customers" style="margin-bottom:18px;"></div>
+
+            <div class="card-title" style="font-size:13px;">Sales Detail</div>
+            <div style="overflow-x:auto;margin-top:6px;">
+              <table class="data-table" id="salesdash-report-table">
+                <thead><tr>
+                  <th>Quotation No.</th><th>Quotation Date</th><th>Customer Name</th><th>Description</th>
+                  <th class="text-right">Amount Before VAT</th><th class="text-right">VAT</th><th class="text-right">Grand Total</th>
+                  <th>Invoice No.</th><th>Invoice Date</th><th>Payment Status</th><th>Document Status</th><th>Created By</th>
+                </tr></thead>
+                <tbody></tbody>
+              </table>
+              <div class="empty-state" id="salesdash-report-empty" style="display:none;">ไม่มีข้อมูลในช่วงที่เลือก</div>
+            </div>
           </div>
         </div>
 
@@ -8316,8 +8444,18 @@ const Editor = {
     // ทีละ input เพราะ renderItemsEditor()/renderPayments() re-render DOM ของตัวเองใหม่
     // อยู่บ่อยๆ ซึ่งจะล้าง disabled attribute ที่ตั้งไว้ทีละตัว. ปุ่ม Print/Export/Save-PDF
     // ใน .editor-side ไม่ถูกล็อก (ยังดู/พิมพ์ได้ตามที่ "ดูได้อย่างเดียว" อนุญาต) มีแค่ปุ่ม
-    // "บันทึก" กับ "+ เพิ่มรายการ" ที่ซ่อนไปเลยเพราะอยู่นอก .editor-main.
-    const invViewOnly = (Auth.role() === 'preparer' && d.type === 'INV');
+    // "บันทึก" ที่ซ่อนไปเลยเพราะอยู่นอก .editor-main.
+    //
+    // "ส่งอนุมัติเรียบร้อยแล้ว ดูได้อย่างเดียว พิมอะไรเพิ่มไม่ได้เลย" — once submitForApproval()
+    // moves a Quotation into 'PendingApproval' (see Documents.submitForApproval), the
+    // preparer/anyone-non-Admin must not be able to keep editing it while it's sitting
+    // in someone else's approval queue — same "ดูได้อย่างเดียว" lock as invViewOnly above,
+    // just keyed off status instead of role+type. Admin keeps the existing safety-valve
+    // exception used everywhere else in this file (see the authApproved guard further
+    // down). Deliberately does NOT cover 'ReturnedForRevision' — that status exists
+    // specifically so the preparer can edit again and resubmit (Documents.returnForRevision).
+    const workflowLocked = (d.status === 'PendingApproval' && !Auth.isAdmin());
+    const invViewOnly = (Auth.role() === 'preparer' && d.type === 'INV') || workflowLocked;
     document.getElementById('view-editor').classList.toggle('editor-readonly', invViewOnly);
     document.getElementById('doc-type-select').disabled = invViewOnly;
     document.getElementById('btn-save-doc').style.display = invViewOnly ? 'none' : '';
@@ -10849,9 +10987,10 @@ const ExportMod = {
    Status breakdown, and a detailed AR (outstanding invoice) report.
    ============================================================================ */
 const Reports = {
-  currentTab: 'sales',
+  currentTab: 'salesdash',
   _rows: {}, // key -> 2D array [header, ...dataRows], shared by every report's CSV/Excel/PDF export (spec 12)
   TITLES: {
+    salesdash:'Sales Report Dashboard / แดชบอร์ดรายงานยอดขาย',
     sales:'Sales Overview / ภาพรวมยอดขาย',
     outstanding:'Outstanding Report / รายงานลูกหนี้และยอดค้างชำระ',
     docstatus:'Document Status Report / รายงานสถานะเอกสาร',
@@ -10868,7 +11007,7 @@ const Reports = {
     const monthStart = ()=>{ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-01'; };
     [['rpt-sales-from','rpt-sales-to'],['rpt-outstanding-from','rpt-outstanding-to'],
      ['rpt-docstatus-from','rpt-docstatus-to'],['rpt-tax-from','rpt-tax-to'],['rpt-cp-from','rpt-cp-to'],
-     ['rpt-receiptsummary-from','rpt-receiptsummary-to']
+     ['rpt-receiptsummary-from','rpt-receiptsummary-to'],['rpt-salesdash-from','rpt-salesdash-to']
     ].forEach(([fromId,toId])=>{
       const fromEl = document.getElementById(fromId), toEl = document.getElementById(toId);
       if(fromEl && !fromEl.value) fromEl.value = monthStart();
@@ -10879,9 +11018,19 @@ const Reports = {
       const n = new Date();
       monthEl.value = n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
     }
+    // "Company" filter on the Sales Report Dashboard reuses the exact same
+    // Workspace.allowedList() source as the sidebar company switcher (see
+    // Render.renderCompanySwitcher) — rebuilt every Reports.init() call so it
+    // stays correct across Workspace.switchTo() reloads too.
+    const salesDashCompanySel = document.getElementById('rpt-salesdash-company');
+    if(salesDashCompanySel){
+      const currentId = Workspace.getCurrentId();
+      salesDashCompanySel.innerHTML = Workspace.allowedList().map(c=>
+        `<option value="${c.id}" ${c.id===currentId?'selected':''}>${Utils.escapeHtml(c.name)}</option>`).join('');
+    }
     Reports.populateFilterSelects();
     Reports.populateCustomerHistorySelect();
-    Reports.switchTab(Reports.currentTab || 'sales');
+    Reports.switchTab(Reports.currentTab || 'salesdash');
   },
 
   switchTab(key){
@@ -10996,6 +11145,7 @@ const Reports = {
 
   render(key){
     const fn = {
+      salesdash: Reports.renderSalesDashReport,
       sales: Reports.renderSalesReport,
       outstanding: Reports.renderOutstandingReport,
       docstatus: Reports.renderDocStatusReport,
@@ -11063,7 +11213,7 @@ const Reports = {
    *  clobbering whatever the user already picked (same staleness-guard pattern as
    *  #filter-customer in Render.documentsList — see dataset.count). */
   populateFilterSelects(){
-    const prefixes = ['rpt-sales','rpt-outstanding','rpt-docstatus','rpt-tax','rpt-cp','rpt-monthly','rpt-receiptsummary'];
+    const prefixes = ['rpt-salesdash','rpt-sales','rpt-outstanding','rpt-docstatus','rpt-tax','rpt-cp','rpt-monthly','rpt-receiptsummary'];
     const creators = Reports._creatorOptions();
     prefixes.forEach(p=>{
       const custSel = document.getElementById(p+'-customer');
@@ -11119,6 +11269,331 @@ const Reports = {
         <div class="bar-label">${m.label}</div>
       </div>`;
     }).join('');
+  },
+
+  /* ---------------------------- 0. SALES REPORT DASHBOARD (Executive) ----------------------------
+     Layered on top of "1. SALES OVERVIEW" just below — reuses Documents.list(),
+     Calc.computeTotals(), Render.badgeHtml() and _renderMonthlyChart() the exact
+     same way every other report tab does; only the widget-rendering helpers
+     right below (_kpiHtmlIcon / _renderPipeline / _renderStatusBreakdown /
+     _renderTopCustomers) are new, and they're additive — nothing existing calls
+     them, so no other report tab's output changes. */
+  _kpiHtmlIcon(items){
+    return items.map(it=> `
+      <div class="report-kpi icon-card${it.accent?(' accent-'+it.accent):''}">
+        <div class="rk-icon">${it.icon||''}</div>
+        <div>
+          <div class="rk-label">${Utils.escapeHtml(it.label)}</div>
+          <div class="rk-value">${it.value}</div>
+        </div>
+      </div>`).join('');
+  },
+
+  _renderPipeline(containerId, stages){
+    const el = document.getElementById(containerId);
+    if(!el) return;
+    const maxCount = Math.max(1, ...stages.map(s=> s.count));
+    el.innerHTML = stages.map(s=>{
+      const pct = Math.max(2, Math.round((s.count/maxCount)*100));
+      return `<div class="pipeline-stage">
+        <div class="ps-label">${Utils.escapeHtml(s.label)}</div>
+        <div class="ps-count">${s.count}</div>
+        <div class="ps-bar-track"><div class="ps-bar-fill" style="width:${pct}%;"></div></div>
+      </div>`;
+    }).join('');
+  },
+
+  /** Same hue groupings as .badge-* in the CSS (see the comment there) so this
+   *  chart and the status badges in the detail table read as one color language. */
+  _STATUS_COLORS:{
+    Draft:'#aeb4c4', PendingApproval:'#f0bb6a', Sent:'#7fb3ff', Approved:'#5be3a0',
+    ReturnedForRevision:'#ff9d6e', Denied:'#ff9490', Rejected:'#c9b8ff',
+    PartiallyPaid:'#f0bb6a', Paid:'#4eeaa4', Cancelled:'#ff9490', Overdue:'#ffc670'
+  },
+
+  /** Chart 1 (spec section 5): horizontal bar per status. "Invoice Created" has
+   *  no matching STATUS_LIST value in this app's data model (see project notes —
+   *  an invoice is identified by type==='INV', not a status string), so that one
+   *  bucket is counted by document type instead of by status like the other 5. */
+  _renderStatusBreakdown(containerId, docs){
+    const el = document.getElementById(containerId);
+    if(!el) return;
+    const buckets = [
+      { key:'Draft', label:'Draft' },
+      { key:'PendingApproval', label:'Pending Approval' },
+      { key:'Approved', label:'Approved' },
+      { key:'INV_CREATED', label:'Invoice Created' },
+      { key:'Paid', label:'Paid' },
+      { key:'Cancelled', label:'Cancelled' }
+    ].map(b=> ({ ...b, count: b.key==='INV_CREATED' ? docs.filter(d=>d.type==='INV').length : docs.filter(d=>d.status===b.key).length }));
+    const maxCount = Math.max(1, ...buckets.map(b=>b.count));
+    el.innerHTML = buckets.map(b=>{
+      const pct = b.count ? Math.max(3, Math.round((b.count/maxCount)*100)) : 0;
+      const color = b.key==='INV_CREATED' ? '#7fb3ff' : (Reports._STATUS_COLORS[b.key]||'#7fa3c9');
+      return `<div class="sb-row">
+        <div class="sb-label">${Utils.escapeHtml(b.label)}</div>
+        <div class="sb-track"><div class="sb-fill" style="width:${pct}%;background:${color};"></div></div>
+        <div class="sb-count">${b.count}</div>
+      </div>`;
+    }).join('');
+  },
+
+  /** Widget 8 (spec section 8): top customers by Grand Total within the current filter. */
+  _renderTopCustomers(containerId, docs, limit){
+    const el = document.getElementById(containerId);
+    if(!el) return;
+    const byCust = {};
+    docs.forEach(d=>{
+      const name = (d.customer && d.customer.name) || '(ไม่ระบุลูกค้า)';
+      byCust[name] = (byCust[name]||0) + Calc.computeTotals(d).grandTotal;
+    });
+    const top = Object.keys(byCust).map(name=> ({name, amount:byCust[name]})).sort((a,b)=> b.amount-a.amount).slice(0, limit||5);
+    el.innerHTML = top.length ? top.map((c,i)=> `
+      <div class="top-customer-row">
+        <div class="tc-rank">${i+1}</div>
+        <div class="tc-name">${Utils.escapeHtml(c.name)}</div>
+        <div class="tc-amount">${Utils.formatCurrency(c.amount)}</div>
+      </div>`).join('') : '<div class="empty-state">ไม่มีข้อมูลในช่วงที่เลือก</div>';
+  },
+
+  /** "ช่วงเวลา" quick-select (spec section 2: เดือน / ปี) — fills the from/to date
+   *  inputs, same pattern as setReceiptSummaryRange() below for the existing
+   *  รายงานสรุปรายรับ tab. Leaves the dates untouched on "กำหนดเอง" (custom). */
+  setSalesDashPeriod(){
+    const kind = Reports._v('rpt-salesdash-period');
+    if(kind === 'custom' || !kind) return;
+    const n = new Date();
+    if(kind === 'month'){
+      document.getElementById('rpt-salesdash-from').value = n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-01';
+      document.getElementById('rpt-salesdash-to').value = Utils.todayISO();
+    }else if(kind === 'year'){
+      document.getElementById('rpt-salesdash-from').value = n.getFullYear()+'-01-01';
+      document.getElementById('rpt-salesdash-to').value = Utils.todayISO();
+    }
+  },
+
+  renderSalesDashReport(){
+    const p = 'rpt-salesdash';
+    const statusF = Reports._v(p+'-status'); // '', a real STATUS_LIST value, or the pseudo 'INV_CREATED'
+    const custId = Reports._v(p+'-customer');
+    const from = Reports._v(p+'-from');
+    const to = Reports._v(p+'-to');
+
+    const inRange = (d)=> (!from || (d.date||'') >= from) && (!to || (d.date||'') <= to);
+    let docs = Documents.list().filter(inRange);
+    if(custId) docs = docs.filter(d=> d.customerId === custId);
+    if(statusF === 'INV_CREATED') docs = docs.filter(d=> d.type === 'INV');
+    else if(statusF) docs = docs.filter(d=> d.status === statusF);
+    // Monthly chart always looks back 6 trailing months regardless of the date-range
+    // filter above — same convention _renderMonthlyChart's callers use everywhere else.
+    const chartDocs = Documents.list().filter(d=> !custId || d.customerId===custId);
+
+    /* ---- KPI cards (spec section 3) ---- */
+    const qtDocs = docs.filter(d=> d.type==='QT');
+    const invDocs = docs.filter(d=> d.type==='INV');
+    const totalSales = docs.reduce((s,d)=> s + Calc.computeTotals(d).grandTotal, 0);
+    const receivedAmount = Receipts.list()
+      .filter(r=> r.status!=='Cancelled' && (!from || (r.paymentDate||'')>=from) && (!to || (r.paymentDate||'')<=to) && (!custId || r.customerId===custId))
+      .reduce((s,r)=> s + Utils.num(r.recognizedAmount), 0);
+    const outstanding = invDocs.filter(d=> d.status!=='Paid' && d.status!=='Cancelled').reduce((s,d)=> s + Calc.remainingBalance(d), 0);
+    const pendingAction = docs.filter(d=> ['PendingApproval','Sent','ReturnedForRevision'].includes(d.status)).length;
+
+    document.getElementById('salesdash-kpi-grid').innerHTML = Reports._kpiHtmlIcon([
+      { icon:'💰', label:'Total Sales / ยอดขายรวม', value: Utils.formatCurrency(totalSales), accent:'green' },
+      { icon:'📄', label:'Total Quotation / ใบเสนอราคา', value: qtDocs.length },
+      { icon:'🧾', label:'Invoice Created / ใบแจ้งหนี้', value: invDocs.length },
+      { icon:'💵', label:'Received / ยอดรับเงินแล้ว', value: Utils.formatCurrency(receivedAmount), accent:'green' },
+      { icon:'⏳', label:'Outstanding / ยอดค้างรับ', value: Utils.formatCurrency(outstanding), accent:'red' },
+      { icon:'⚠', label:'Pending Action / รอดำเนินการ', value: pendingAction, accent:'amber' }
+    ]);
+
+    /* ---- Sales Pipeline (spec section 4) ---- */
+    const approvedQtCount = qtDocs.filter(d=> d.status==='Approved' || d.convertedToId).length;
+    const paidInvCount = invDocs.filter(d=> d.status==='Paid').length;
+    Reports._renderPipeline('salesdash-pipeline', [
+      { label:'Quotation', count: qtDocs.length },
+      { label:'Approved', count: approvedQtCount },
+      { label:'Invoice', count: invDocs.length },
+      { label:'Paid', count: paidInvCount }
+    ]);
+
+    /* ---- Charts (spec section 5) ---- */
+    Reports._renderStatusBreakdown('salesdash-status-chart', docs);
+    Reports._renderMonthlyChart('salesdash-monthly-chart', chartDocs, d=> Calc.computeTotals(d).grandTotal);
+
+    /* ---- Top Customer ranking (spec section 8) ---- */
+    Reports._renderTopCustomers('salesdash-top-customers', docs, 5);
+
+    /* ---- Sales Detail table (spec section 6) — one row per Quotation, carrying its
+       resulting Invoice's number/date/status if convertedToId links to one, plus any
+       Invoice created directly with no source Quotation in this system. "Created By"
+       uses preparedByName — the closest per-document "who made this" field, same
+       substitution _creatorOptions()/the ผู้สร้าง filter above already make. */
+    const search = (Reports._v(p+'-search')||'').trim().toLowerCase();
+    const rows = [];
+    qtDocs.forEach(q=>{
+      const inv = q.convertedToId ? DB.documents.find(x=> x.id === q.convertedToId) : null;
+      rows.push({ qt:q, inv });
+    });
+    invDocs.filter(d=> !d.convertedFromId).forEach(inv=> rows.push({ qt:null, inv }));
+
+    const filteredRows = search ? rows.filter(r=>{
+      const primary = r.qt || r.inv;
+      const hay = [r.qt&&r.qt.docNumber, r.inv&&r.inv.docNumber, primary.customer&&primary.customer.name].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(search);
+    }) : rows;
+
+    const tbody = document.querySelector('#salesdash-report-table tbody');
+    const emptyEl = document.getElementById('salesdash-report-empty');
+    tbody.innerHTML = filteredRows.map(r=>{
+      const primary = r.qt || r.inv;
+      const t = Calc.computeTotals(primary);
+      const desc = (primary.items||[]).map(it=> it.description).filter(Boolean).slice(0,2).join(', ') || '-';
+      return `<tr>
+        <td class="nowrap">${r.qt ? Utils.escapeHtml(r.qt.docNumber) : '<span class="muted">-</span>'}</td>
+        <td class="nowrap">${r.qt ? Utils.formatDateThai(r.qt.date) : '<span class="muted">-</span>'}</td>
+        <td>${Utils.escapeHtml((primary.customer&&primary.customer.name)||'')}</td>
+        <td>${Utils.escapeHtml(desc)}</td>
+        <td class="text-right">${Utils.formatMoney(t.taxBase)}</td>
+        <td class="text-right">${Utils.formatMoney(t.vat)}</td>
+        <td class="text-right" style="font-weight:700;">${Utils.formatMoney(t.grandTotal)}</td>
+        <td class="nowrap">${r.inv ? Utils.escapeHtml(r.inv.docNumber) : '<span class="muted">ยังไม่ออก</span>'}</td>
+        <td class="nowrap">${r.inv ? Utils.formatDateThai(r.inv.date) : '<span class="muted">-</span>'}</td>
+        <td>${r.inv ? Render.badgeHtml(r.inv.status) : '<span class="muted">-</span>'}</td>
+        <td>${Render.badgeHtml(primary.status)}</td>
+        <td>${Utils.escapeHtml(primary.preparedByName||'-')}</td>
+      </tr>`;
+    }).join('');
+    emptyEl.style.display = filteredRows.length ? 'none' : 'block';
+
+    Reports._rows.salesdash = [
+      ['Quotation No.','Quotation Date','Customer Name','Description','Amount Before VAT','VAT','Grand Total','Invoice No.','Invoice Date','Payment Status','Document Status','Created By']
+    ].concat(filteredRows.map(r=>{
+      const primary = r.qt || r.inv;
+      const t = Calc.computeTotals(primary);
+      const desc = (primary.items||[]).map(it=> it.description).filter(Boolean).slice(0,2).join(', ');
+      return [
+        r.qt?r.qt.docNumber:'', r.qt?r.qt.date:'', (primary.customer&&primary.customer.name)||'', desc,
+        Utils.round2(t.taxBase), Utils.round2(t.vat), Utils.round2(t.grandTotal),
+        r.inv?r.inv.docNumber:'', r.inv?r.inv.date:'', r.inv?r.inv.status:'', primary.status, primary.preparedByName||''
+      ];
+    }));
+
+    // Stashed for exportSalesDashExcel()/exportSalesDashPDF() below so they don't
+    // have to recompute the same KPI totals a second time.
+    Reports._salesDashSummary = {
+      from, to, custId,
+      company: DB.company.name,
+      totalSales, qtCount: qtDocs.length, invCount: invDocs.length,
+      receivedAmount, outstanding
+    };
+  },
+
+  /** Export Excel (spec section 9) — 2-sheet workbook: "Sales Summary" (company/
+   *  period/KPI totals) + "Sales Detail" (the table above, dates reformatted to
+   *  DD/MM/YYYY per spec). Its own SpreadsheetML writer rather than
+   *  Utils.downloadMultiSheetExcel — same zero-dependency .xls technique (no
+   *  library is loaded anywhere in this app for a true .xlsx — see the comment
+   *  on Utils.downloadMultiSheetExcel), just with a frozen header row added on
+   *  the detail sheet, which that shared helper doesn't support and other
+   *  reports' Export Excel buttons don't need. */
+  exportSalesDashExcel(){
+    const rows = Reports._rows.salesdash;
+    if(!rows || rows.length <= 1){ Utils.toast('ไม่มีข้อมูลสำหรับ Export', 'err'); return; }
+    const s = Reports._salesDashSummary || {};
+    Utils.withBusy('กำลังสร้างไฟล์ Excel...', ()=>{
+      const xmlEscape = (v)=>{ if(v===undefined||v===null) v=''; return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+      const cell = (v, styleId)=>{
+        const isNum = typeof v === 'number';
+        const style = styleId ? ` ss:StyleID="${styleId}"` : '';
+        if(isNum) return `<Cell${style}><Data ss:Type="Number">${v}</Data></Cell>`;
+        return `<Cell${style}><Data ss:Type="String">${xmlEscape(v)}</Data></Cell>`;
+      };
+      const summaryRows = [
+        ['Sales Summary'], [],
+        ['Company', s.company||''],
+        ['Period', (s.from?Utils.formatDateThai(s.from):'-') + ' - ' + (s.to?Utils.formatDateThai(s.to):'-')],
+        ['Total Sales', Utils.round2(s.totalSales||0)],
+        ['Total Quotation', s.qtCount||0],
+        ['Total Invoice', s.invCount||0],
+        ['Total Received', Utils.round2(s.receivedAmount||0)],
+        ['Outstanding', Utils.round2(s.outstanding||0)]
+      ];
+      // Detail sheet keeps only the 5 columns spec 9 asks for (Quotation No./
+      // Invoice No./Customer/Amount/Status) — the fuller 12-column table stays
+      // on-screen and in Export PDF; ISO dates aren't part of this sheet so no
+      // date reformat is needed here.
+      const detailRows = [['Quotation No.','Invoice No.','Customer','Amount','Status']]
+        .concat(rows.slice(1).map(r=> [r[0], r[7], r[2], Utils.round2(r[6]), r[10]]));
+
+      const sheetXml = (name, dataRows, freezeHeaderRow)=>{
+        const rowsXml = dataRows.map((r,idx)=>{
+          const styleId = idx===0 ? 'sHead' : 'sCell';
+          return `<Row>${(r||[]).map(v=> cell(v, styleId)).join('')}</Row>`;
+        }).join('');
+        const freezeXml = freezeHeaderRow ? `
+    <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+      <FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane><ActivePane>2</ActivePane>
+    </WorksheetOptions>` : '';
+        return ` <Worksheet ss:Name="${xmlEscape(name.slice(0,31))}">
+  <Table>${rowsXml}</Table>${freezeXml}
+ </Worksheet>`;
+      };
+      const xml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="sCell"><Font ss:FontName="Tahoma" ss:Size="10"/></Style>
+  <Style ss:ID="sHead"><Font ss:FontName="Tahoma" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#14213D" ss:Pattern="Solid"/></Style>
+ </Styles>
+${sheetXml('Sales Summary', summaryRows, false)}
+${sheetXml('Sales Detail', detailRows, true)}
+</Workbook>`;
+      const blob = new Blob([xml], {type:'application/vnd.ms-excel;charset=utf-8;'});
+      const stamp = Utils.formatDate(new Date(), 'YYYYMMDD-HHmm');
+      Utils.downloadBlob(blob, `sales-report-dashboard-${stamp}.xls`);
+      ActivityLog.log('Export Excel', 'Sales Report Dashboard', { note: `ช่วง ${s.from||'-'} ถึง ${s.to||'-'}` });
+      Utils.toast('Export Excel สำเร็จ', 'ok');
+    });
+  },
+
+  /** Export PDF (spec section 10) — same window.print()-to-PDF technique every
+   *  other report's printReport() uses (no jsPDF/html2canvas dependency added),
+   *  just laying out KPI cards + pipeline + the full detail table instead of a
+   *  single flat table, since this tab has more than one widget on screen. */
+  exportSalesDashPDF(){
+    const rows = Reports._rows.salesdash;
+    if(!rows || rows.length <= 1){ Utils.toast('ไม่มีข้อมูลสำหรับพิมพ์', 'err'); return; }
+    const [header, ...body] = rows;
+    const s = Reports._salesDashSummary || {};
+    const company = DB.company;
+    const kpiGrid = document.getElementById('salesdash-kpi-grid').innerHTML;
+    const pipeline = document.getElementById('salesdash-pipeline').innerHTML;
+    const cellHtml = (c)=> typeof c === 'number'
+      ? `<td class="text-right">${Utils.formatMoney(c)}</td>`
+      : `<td>${Utils.escapeHtml(c)}</td>`;
+    const html = `
+      <div class="report-print-page">
+        <div class="report-print-header">
+          <b>${Utils.escapeHtml(company.name || '')}</b>
+          <div>${Utils.nl2br(company.address||'')}</div>
+        </div>
+        <div class="report-print-title">Sales Report Dashboard — แดชบอร์ดรายงานยอดขาย</div>
+        <div class="report-print-meta">ช่วงข้อมูล ${s.from?Utils.formatDateThai(s.from):'-'} ถึง ${s.to?Utils.formatDateThai(s.to):'-'} • พิมพ์เมื่อ ${Utils.formatDateThai(Utils.todayISO())}</div>
+        <div class="report-kpi-grid salesdash-kpi" style="margin:14px 0;">${kpiGrid}</div>
+        <div class="sales-pipeline" style="margin-bottom:14px;">${pipeline}</div>
+        <table class="report-print-table">
+          <thead><tr>${header.map(h=>`<th>${Utils.escapeHtml(h)}</th>`).join('')}</tr></thead>
+          <tbody>${body.map(r=> (r&&r.length) ? `<tr>${r.map(cellHtml).join('')}</tr>` : '').join('')}</tbody>
+        </table>
+        <div class="report-print-meta" style="margin-top:10px;">Generated By ${Utils.escapeHtml(Auth.displayName ? (Auth.displayName()||'') : '')} • ${Utils.formatDateThai(Utils.todayISO())}</div>
+      </div>`;
+    document.getElementById('print-area').innerHTML = html;
+    ActivityLog.log('Export PDF', 'Sales Report Dashboard', { note: `ช่วง ${s.from||'-'} ถึง ${s.to||'-'}` });
+    window.print();
   },
 
   /* ---------------------------- 1. SALES OVERVIEW (รวม QT + INV) ---------------------------- */
@@ -12125,8 +12600,18 @@ function wireEvents(){
     const id = e.target && e.target.id;
     if(!id || !id.startsWith('rpt-')) return;
     if(id === 'rpt-cp-history-select'){ Reports.renderCustomerHistory(); return; }
+    // Sales Report Dashboard's "บริษัท" filter reuses the app's existing
+    // multi-company switch flow (same as the sidebar switcher) instead of a
+    // parallel cross-company query — Workspace.switchTo() reloads the local DB
+    // for that company and re-renders whichever view/tab is currently open.
+    if(id === 'rpt-salesdash-company'){ Workspace.switchTo(e.target.value); return; }
+    if(id === 'rpt-salesdash-period'){ Reports.setSalesDashPeriod(); }
     Reports.render(Reports.currentTab);
   });
+  // Sales Report Dashboard: real-time search (spec 13) — 'input', not 'change',
+  // so the detail table re-filters on every keystroke instead of on blur.
+  const salesDashSearchEl = document.getElementById('rpt-salesdash-search');
+  if(salesDashSearchEl) salesDashSearchEl.addEventListener('input', ()=> Reports.render('salesdash'));
   document.getElementById('menu-toggle').addEventListener('click', ()=>{
     document.getElementById('sidebar').classList.toggle('open');
   });

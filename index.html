@@ -693,6 +693,15 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 }
 #sidebar .nav-item:hover{background:rgba(255,255,255,0.16);color:#fff;transform:translateY(-1px);}
 #sidebar .nav-item.active{background:linear-gradient(135deg,var(--blue-accent),var(--navy));color:var(--navy-dark);font-weight:700;box-shadow:0 3px 10px rgba(0,0,0,0.35);}
+/* Standalone "สร้างเอกสาร" CTA (moved out of the DOCUMENTS group, see the HTML
+   comment above it) — always shows its accent gradient, not just on hover/active
+   like a normal .nav-item, so it reads as the primary action at a glance. */
+#sidebar .nav-item.nav-item-cta{
+  background:linear-gradient(135deg,var(--red),#c0392b);color:#fff;
+  font-weight:800;box-shadow:0 3px 12px rgba(239,91,86,0.4);margin-top:2px;margin-bottom:10px;
+}
+#sidebar .nav-item.nav-item-cta:hover{background:linear-gradient(135deg,#ff7b76,#e05353);color:#fff;transform:translateY(-1px);box-shadow:0 4px 16px rgba(239,91,86,0.5);}
+#sidebar .nav-item.nav-item-cta.active{background:linear-gradient(135deg,var(--red),#c0392b);color:#fff;box-shadow:0 3px 12px rgba(239,91,86,0.4);}
 #sidebar .nav-item .ic{width:18px;height:18px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;opacity:1;}
 #sidebar .nav-item .ic svg{width:100%;height:100%;}
 .nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:10.5px;font-weight:700;line-height:1;padding:3px 7px;border-radius:20px;min-width:18px;text-align:center;}
@@ -1749,10 +1758,17 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
       <div class="nav-item" data-view="dashboard" role="button" tabindex="0"><span class="ic" aria-hidden="true">▦</span> Dashboard</div>
       <div class="nav-item" data-view="approvals" id="nav-approvals" role="button" tabindex="0" style="display:none;"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span> รายการรออนุมัติ<span class="nav-badge" id="nav-approvals-badge" style="display:none;"></span></div>
 
+      <!-- "ย้ายสร้างเอกสารไปอยู่แยก ใส่สีเด่นๆ" — moved out of the DOCUMENTS group below into
+           its own standalone, always-colored CTA item so it reads as the primary action
+           instead of one more row inside a collapsible group. Still uses data-view="editor"
+           and .nav-item, so Render.renderSidebarUser()'s role-visibility toggle (selects by
+           attribute, not by which group it's nested in) and Router navigation both keep
+           working unchanged — see the comment on that function. -->
+      <div class="nav-item nav-item-cta" data-view="editor" role="button" tabindex="0"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h6l4 4v13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v4h4"/><path d="M12 12.5v5M9.5 15h5"/></svg></span> สร้างใบเสนอราคา</div>
+
       <div class="nav-group" data-group="documents">
         <div class="nav-group-header" role="button" tabindex="0" aria-expanded="true"><span class="nav-group-label">Documents</span><span class="nav-group-caret">▾</span></div>
         <div class="nav-group-items">
-          <div class="nav-item" data-view="editor" role="button" tabindex="0"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h6l4 4v13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v4h4"/><path d="M12 12.5v5M9.5 15h5"/></svg></span> สร้างเอกสาร</div>
           <div class="nav-item" data-view="quotations" role="button" tabindex="0"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h6l4 4v13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v4h4"/><path d="M9 13h6M9 17h6"/></svg></span> ใบเสนอราคาทั้งหมด</div>
           <div class="nav-item" data-view="invoices" role="button" tabindex="0"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v17l-2-1.3L14 20l-2-1.3L10 20l-2-1.3L6 20V3Z"/><path d="M9 8h6M9 12h6"/></svg></span> ใบแจ้งหนี้ทั้งหมด</div>
         </div>

@@ -2052,7 +2052,7 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
               <div class="field"><label>เครดิต (วัน)</label><input type="number" id="doc-credit" min="0"></div>
               <div class="field"><label>เงื่อนไขการชำระเงิน</label><input type="text" id="doc-terms"></div>
               <div class="field"><label>Project</label><input type="text" id="doc-project"></div>
-              <div class="field"><label>Reference No.</label><input type="text" id="doc-refno"></div>
+              <div class="field"><label>Game</label><input type="text" id="doc-refno"></div>
             </div>
           </div>
         </div>
@@ -8446,15 +8446,19 @@ const Editor = {
     // ใน .editor-side ไม่ถูกล็อก (ยังดู/พิมพ์ได้ตามที่ "ดูได้อย่างเดียว" อนุญาต) มีแค่ปุ่ม
     // "บันทึก" ที่ซ่อนไปเลยเพราะอยู่นอก .editor-main.
     //
-    // "ส่งอนุมัติเรียบร้อยแล้ว ดูได้อย่างเดียว พิมอะไรเพิ่มไม่ได้เลย" — once submitForApproval()
-    // moves a Quotation into 'PendingApproval' (see Documents.submitForApproval), the
-    // preparer/anyone-non-Admin must not be able to keep editing it while it's sitting
-    // in someone else's approval queue — same "ดูได้อย่างเดียว" lock as invViewOnly above,
-    // just keyed off status instead of role+type. Admin keeps the existing safety-valve
-    // exception used everywhere else in this file (see the authApproved guard further
-    // down). Deliberately does NOT cover 'ReturnedForRevision' — that status exists
-    // specifically so the preparer can edit again and resubmit (Documents.returnForRevision).
-    const workflowLocked = (d.status === 'PendingApproval' && !Auth.isAdmin());
+    // "จัดทำใบเสนอราคา ส่งอนุมัติแล้ว ไม่สามารถแก้ไขอะไรได้เลย ยกเว้น แอดมิน กับผู้มีอำนาจอนุมัติ" —
+    // once submitForApproval() moves a Quotation out of 'Draft', everyone except Admin
+    // and the 'authorized' role (ผู้มีอำนาจอนุมัติ — step 2 of the 3-step workflow, see
+    // renderWorkflow) must not be able to keep editing it while it's anywhere in the
+    // approval pipeline. This covers the WHOLE pipeline, not just 'PendingApproval' —
+    // step-2 approval flips status to 'Approved' (see Editor.approveDoc, d.status =
+    // 'Approved') while still awaiting step 3 (บัญชีอนุมัติ+วางบิล), and that window was
+    // still editable before this fix. Scoped to type==='QT' since Invoices already have
+    // their own always-locked-for-preparer rule (invViewOnly below). Deliberately does
+    // NOT cover 'Draft'/'ReturnedForRevision' — those exist specifically so the preparer
+    // can create/edit-and-resubmit (Documents.returnForRevision).
+    const workflowLocked = (d.type === 'QT' && !['Draft','ReturnedForRevision'].includes(d.status)
+      && !Auth.isAdmin() && Auth.role() !== 'authorized');
     const invViewOnly = (Auth.role() === 'preparer' && d.type === 'INV') || workflowLocked;
     document.getElementById('view-editor').classList.toggle('editor-readonly', invViewOnly);
     document.getElementById('doc-type-select').disabled = invViewOnly;

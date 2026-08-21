@@ -779,7 +779,13 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 @media (max-width:640px){.calc-panel{width:220px;}}
 
 #main-wrap{flex:1;min-width:0;display:flex;flex-direction:column;}
-#main-content{padding:28px 32px 64px;max-width:1300px;width:100%;margin:0 auto;}
+/* "ปรับให้บาลานซ์หน่อย สวยๆ" — 1300px left the content column looking lost in the
+   middle of a wide monitor, with two big uniform empty margins either side (see
+   the red-boxed gaps in the screenshot report). Widened the cap so tables/cards
+   actually use the screen instead of floating in a fixed-width island; still
+   centers itself the same way (margin:0 auto) so it just gracefully shrinks
+   back down on narrower viewports, same as before. */
+#main-content{padding:28px 40px 64px;max-width:1600px;width:100%;margin:0 auto;}
 
 .view{display:none;}
 .view.active{display:block;animation:fadein .2s ease;}

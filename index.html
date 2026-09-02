@@ -1080,9 +1080,33 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
    alongside the existing KPIs which are now demoted into a compact secondary
    chip row (dash-chip-grid) so no existing metric is lost, just re-prioritized.
    ============================================================================ */
+/* "แค่ให้ผู้บริหารดูสำหรับหน้านี้ ... อยากรู้แค่ว่ายอดออกบิลแล้วเท่าไหร่ จ่ายมาเท่าไหร่
+   ยังไม่จ่ายเท่าไหร่" — แถบสรุป 3 ตัวเลขใหญ่สุดของหน้า Dashboard ตั้งใจให้ตัวเลข/ไอคอน
+   ใหญ่กว่า .dash-hero-card ทุกจุด (font-size 30px vs 21px) เพื่อให้เป็นสิ่งแรกที่ผู้บริหาร
+   เห็นและอ่านเข้าใจได้ทันทีโดยไม่ต้องตีความ ไม่ปนกับ KPI ชุดเดิมด้านล่างที่มีตัวเลขเยอะกว่า */
+.exec-summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:18px;}
+@media (max-width:900px){.exec-summary-grid{grid-template-columns:1fr;}}
+.exec-summary-card{position:relative;border-radius:var(--radius);padding:22px 24px;overflow:hidden;box-shadow:var(--shadow-md);border:1px solid var(--gray-200);}
+.exec-summary-icon{font-size:26px;margin-bottom:8px;}
+.exec-summary-label{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.85;}
+.exec-summary-value{font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.01em;font-variant-numeric:tabular-nums;}
+.exec-summary-sub{font-size:12px;margin-top:6px;opacity:.75;}
+.exec-summary-taxrow{display:flex;gap:14px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.15);font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;}
+.exec-summary-card.exec-invoiced{background:linear-gradient(135deg,rgba(79,195,247,0.22),rgba(10,24,40,0.75));color:#fff;}
+.exec-summary-card.exec-invoiced .exec-summary-label,.exec-summary-card.exec-invoiced .exec-summary-sub{color:#bfe4ff;}
+.exec-summary-card.exec-paid{background:linear-gradient(135deg,rgba(52,199,123,0.24),rgba(10,24,40,0.75));color:#fff;}
+.exec-summary-card.exec-paid .exec-summary-label,.exec-summary-card.exec-paid .exec-summary-sub{color:#b9f3d3;}
+.exec-summary-card.exec-unpaid{background:linear-gradient(135deg,rgba(239,91,86,0.26),rgba(10,24,40,0.75));color:#fff;}
+.exec-summary-card.exec-unpaid .exec-summary-label,.exec-summary-card.exec-unpaid .exec-summary-sub{color:#ffd0ce;}
+
 .dash-hero-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:14px;}
 @media (max-width:1400px){.dash-hero-grid{grid-template-columns:repeat(3,1fr);}}
 @media (max-width:700px){.dash-hero-grid{grid-template-columns:repeat(2,1fr);}}
+/* ซ่อน 2 การ์ดที่ซ้ำซ้อนกับ .exec-summary-grid (ดูคอมเมนต์ตรง dash-hero-hide ใน HTML) —
+   เหลือ 4 การ์ดเลยปรับ grid ให้พอดี 4 ช่องแทน 6 ช่องเดิม */
+.dash-hero-hide{display:none;}
+.dash-hero-grid-4{grid-template-columns:repeat(4,1fr);}
+@media (max-width:1100px){.dash-hero-grid-4{grid-template-columns:repeat(2,1fr);}}
 .dash-hero-card{position:relative;background:#0b1626;background:rgba(10,24,40,0.68);backdrop-filter:blur(18px) saturate(1.2);border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);overflow:hidden;transition:transform .2s var(--ease),box-shadow .2s var(--ease);}
 .dash-hero-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--blue-accent);}
 .dash-hero-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
@@ -1914,20 +1938,63 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
           <div id="action-banner-list"></div>
         </div>
 
+        <!-- "แค่ให้ผู้บริหารดูสำหรับหน้านี้ ... อยากรู้แค่ว่ายอดออกบิลแล้วเท่าไหร่ จ่ายมา
+             เท่าไหร่ ยังไม่จ่ายเท่าไหร่" — ผู้ใช้บ่นว่า KPI แถวเดิมด้านล่างดูงงเกินไป
+             (มีตัวเลขหลายตัวปนกัน ยอดขาย/รายรับ/ยอดค้าง ฯลฯ) เลยเพิ่มแถบสรุป 3 ตัวเลข
+             ใหญ่ๆ ชัดๆ ไว้บนสุดของหน้า Dashboard โดยเฉพาะ แทนที่จะไปแก้/ลบ KPI แถวเดิม
+             (เสี่ยงพังของเดิมที่ role อื่นอาจยังใช้อยู่) — คำนวณจาก Invoice ที่ไม่ถูกยกเลิก
+             ทั้งหมด (ไม่จำกัดแค่เดือนนี้ เพราะผู้บริหารน่าจะอยากเห็นภาพรวมสะสม):
+             ยอดออกบิลแล้ว (netPayable รวม) = จ่ายแล้ว + ยังไม่จ่าย เสมอ (บวกกันลงตัว) -->
+        <div class="exec-summary-grid">
+          <div class="exec-summary-card exec-invoiced">
+            <div class="exec-summary-icon">🧾</div>
+            <div class="exec-summary-label">ยอดออกบิลแล้ว</div>
+            <div class="exec-summary-value" id="exec-total-invoiced">฿0</div>
+            <div class="exec-summary-sub">ยอดรวม VAT หัก WHT แล้ว</div>
+            <!-- "อยากให้ข้างล่าง มียอด vat เเละ Wht" — สรุปภาษีสะสมของ Invoice ชุดเดียวกับ
+                 ยอดออกบิลแล้วด้านบน (ทุก Invoice ที่ไม่ยกเลิก, สะสมทั้งหมด ไม่จำกัดเดือน) -->
+            <div class="exec-summary-taxrow"><span>VAT ฿<span id="exec-total-vat">0</span></span><span>WHT ฿<span id="exec-total-wht">0</span></span></div>
+          </div>
+          <div class="exec-summary-card exec-paid">
+            <div class="exec-summary-icon">✅</div>
+            <div class="exec-summary-label">จ่ายแล้ว</div>
+            <div class="exec-summary-value" id="exec-total-paid">฿0</div>
+            <div class="exec-summary-sub">ยอดรวม VAT หัก WHT แล้ว</div>
+            <!-- "ทำแบบเดียวกัน" — VAT/WHT เฉพาะส่วนที่ "จ่ายแล้ว" (แบ่งตามสัดส่วนที่ชำระจริง
+                 ของแต่ละใบ ดู execVatPaid/execWhtPaid ใน Render.dashboard()) -->
+            <div class="exec-summary-taxrow"><span>VAT ฿<span id="exec-paid-vat">0</span></span><span>WHT ฿<span id="exec-paid-wht">0</span></span></div>
+          </div>
+          <div class="exec-summary-card exec-unpaid">
+            <div class="exec-summary-icon">⏳</div>
+            <div class="exec-summary-label">ยังไม่จ่าย</div>
+            <div class="exec-summary-value" id="exec-total-unpaid">฿0</div>
+            <div class="exec-summary-sub">ยอดรวม VAT หัก WHT แล้ว</div>
+            <!-- "ทำแบบเดียวกัน" — VAT/WHT เฉพาะส่วนที่ "ยังไม่จ่าย" -->
+            <div class="exec-summary-taxrow"><span>VAT ฿<span id="exec-unpaid-vat">0</span></span><span>WHT ฿<span id="exec-unpaid-wht">0</span></span></div>
+          </div>
+        </div>
+
         <!-- Hero KPI row ("ปรับหน้า Dashboard ให้ดูทันสมัยไฮเทค แบบรูปที่ 2") — icon
              badge + trend %+ sparkline per card. kpi-month-total/kpi-month-label/
              kpi-outstanding/kpi-revenue-month/kpi-customers/kpi-overdue keep their
              original ids (Render.dashboard() already sets them) — only re-homed
-             into this new layout, plus new trend/spark ids populated alongside. -->
-        <div class="dash-hero-grid">
-          <div class="dash-hero-card accent-blue">
+             into this new layout, plus new trend/spark ids populated alongside.
+
+             "ยอดงง ควรทำให้ไม่งงไหม" — หลังเพิ่ม .exec-summary-grid ด้านบนแล้ว การ์ด
+             "ยอดขายเดือนนี้"/"ยอดค้างชำระ" 2 ใบนี้กลายเป็นตัวเลขซ้ำซ้อนกับ "ยอดออกบิลแล้ว"/
+             "ยังไม่จ่าย" (คนละช่วงเวลา/คนละสูตรเลยเลขไม่ตรงกัน = จุดที่ทำให้งง) เลยซ่อนไว้
+             ด้วย class dash-hero-hide (ไม่ลบ element ออก เพราะ Render.dashboard() ยัง
+             set textContent ของ id เหล่านี้อยู่ ลบออกจริงจะทำให้ getElementById คืน null
+             แล้ว throw error กลางฟังก์ชัน) เหลือโชว์แค่ 4 การ์ดที่ไม่ซ้ำกับด้านบน -->
+        <div class="dash-hero-grid dash-hero-grid-4">
+          <div class="dash-hero-card accent-blue dash-hero-hide">
             <div class="dash-hero-top"><div class="dash-hero-icon">💰</div><div class="dash-trend" id="trend-month-total"></div></div>
             <div class="kpi-label">ยอดขายเดือนนี้</div>
             <div class="kpi-value" id="kpi-month-total">฿0</div>
             <div class="kpi-sub" id="kpi-month-label">-</div>
             <svg class="dash-spark" id="spark-month-total" viewBox="0 0 100 30" preserveAspectRatio="none"></svg>
           </div>
-          <div class="dash-hero-card accent-red">
+          <div class="dash-hero-card accent-red dash-hero-hide">
             <div class="dash-hero-top"><div class="dash-hero-icon">🧾</div></div>
             <div class="kpi-label">ยอดค้างชำระ</div>
             <div class="kpi-value" id="kpi-outstanding">฿0</div>
@@ -1963,8 +2030,12 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
 
         <!-- Secondary stat chips — every KPI the Dashboard already had, just
              demoted to a compact row under the new hero cards above so nothing
-             that used to be on the Dashboard is lost. -->
-        <div class="dash-chip-grid">
+             that used to be on the Dashboard is lost.
+
+             "ยอดงง ควรทำให้ไม่งงไหม" — พับซ่อนไว้เป็นค่าเริ่มต้น (ตัวเลขละเอียดพวกนี้เป็นของ
+             ทีมบัญชี/staff มากกว่าผู้บริหาร) กดปุ่มด้านล่างเพื่อดูเพิ่มได้ทุกเมื่อ ไม่ได้ลบทิ้ง -->
+        <button type="button" class="btn btn-sm" id="btn-toggle-dash-details" style="margin-bottom:10px;" aria-expanded="false" aria-controls="dash-chip-grid">📊 ดูรายละเอียดเพิ่มเติม</button>
+        <div class="dash-chip-grid" id="dash-chip-grid" style="display:none;">
           <div class="dash-chip"><div class="kpi-label">ใบเสนอราคาทั้งหมด</div><div class="kpi-value" id="kpi-qt-count">0</div></div>
           <div class="dash-chip"><div class="kpi-label">ใบแจ้งหนี้ทั้งหมด</div><div class="kpi-value" id="kpi-inv-count">0</div></div>
           <div class="dash-chip"><div class="kpi-label">เอกสาร Draft</div><div class="kpi-value" id="kpi-draft">0</div></div>
@@ -2007,14 +2078,16 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
           </div>
         </div>
 
+        <!-- "ไม่อยากเอาอันนี้ ควรเติมอะไรเพิ่มดี" — ผู้ใช้ไม่เอาการ์ด "เอกสารล่าสุด" เดิม (ตาราง
+             flat log ไม่มี insight ให้ผู้บริหาร แถมโชว์ QT/INV คู่ยอดเท่ากันแล้วดูซ้ำซ้อน/งง)
+             แทนที่ด้วย "ลูกค้ายอดขายสูงสุด" (Top Customers) แทน — มี insight ระดับผู้บริหาร
+             มากกว่า (ใครคือลูกค้ารายใหญ่) และไม่ซ้ำกับ AR Aging การ์ดด้านบนที่มีอยู่แล้ว
+             ใช้ Reports._renderTopCustomers() ตัวเดียวกับที่ Sales Report Dashboard ใช้อยู่
+             แล้ว (ดู containerId 'salesdash-top-customers') ไม่ต้องเขียน logic ซ้ำ, สะสม
+             ทั้งหมดไม่จำกัดเดือน ให้สอดคล้องกับ scope ของการ์ดสรุป 3 ตัวเลขด้านบนสุด -->
         <div class="card">
-          <div class="card-title">เอกสารล่าสุด</div>
-          <div style="overflow-x:auto;">
-          <table class="data-table" id="dashboard-recent-table">
-            <thead><tr><th>เลขที่</th><th>ประเภท</th><th>วันที่</th><th>ลูกค้า</th><th class="text-right">ยอดสุทธิ</th><th>สถานะ</th></tr></thead>
-            <tbody></tbody>
-          </table>
-          </div>
+          <div class="card-title">ลูกค้ายอดขายสูงสุด</div>
+          <div class="top-customer-list" id="dashboard-top-customers"></div>
         </div>
       </section>
 
@@ -7548,6 +7621,45 @@ const Render = {
     // raw Net Payable, so this KPI stays accurate once a customer has paid part of an invoice.
     const outstanding = docs.filter(d=> d.type==='INV' && !['Paid','Cancelled'].includes(d.status))
                              .reduce((s,d)=> s + Calc.remainingBalance(d), 0);
+
+    // "แค่ให้ผู้บริหารดูสำหรับหน้านี้ ... ยอดออกบิลแล้วเท่าไหร่ จ่ายมาเท่าไหร่ ยังไม่จ่ายเท่าไหร่" —
+    // ยอดออกบิลแล้ว = netPayable รวมของทุก Invoice ที่ไม่ถูกยกเลิก (ไม่จำกัดเดือน, สะสมทั้งหมด)
+    // ยังไม่จ่าย = ใช้ตัวเดียวกับ `outstanding` ด้านบนเป๊ะๆ (กันเลขไม่ตรงกันระหว่าง 2 การ์ด)
+    // จ่ายแล้ว = ออกบิลแล้ว − ยังไม่จ่าย เพื่อให้ 3 ตัวเลขบวกกันลงตัวเสมอ ดูแล้วไม่งง
+    const execInvoicedDocs = docs.filter(d=> d.type==='INV' && d.status!=='Cancelled');
+    const execTotalInvoiced = execInvoicedDocs.reduce((s,d)=> s + Calc.computeTotals(d).netPayable, 0);
+    const execTotalUnpaid = outstanding;
+    const execTotalPaid = Utils.round2(execTotalInvoiced - execTotalUnpaid);
+    document.getElementById('exec-total-invoiced').textContent = Utils.formatCurrency(execTotalInvoiced);
+    document.getElementById('exec-total-paid').textContent = Utils.formatCurrency(execTotalPaid);
+    // "อยากให้ข้างล่าง มียอด vat เเละ Wht" — สรุป VAT/WHT สะสมของ Invoice ชุดเดียวกับ
+    // ยอดออกบิลแล้วด้านบน (execInvoicedDocs) ไม่ใช้ Utils.formatCurrency เพราะการ์ดนี้
+    // เขียนสัญลักษณ์ ฿ ไว้ในป้ายกำกับแยกแล้ว (ดู HTML: "VAT ฿<span id=exec-total-vat>")
+    const execTotalVat = execInvoicedDocs.reduce((s,d)=> s + Calc.computeTotals(d).vat, 0);
+    const execTotalWht = execInvoicedDocs.reduce((s,d)=> s + Calc.computeTotals(d).wht, 0);
+    document.getElementById('exec-total-vat').textContent = Utils.formatMoney(execTotalVat);
+    document.getElementById('exec-total-wht').textContent = Utils.formatMoney(execTotalWht);
+    document.getElementById('exec-total-unpaid').textContent = Utils.formatCurrency(execTotalUnpaid);
+    // "ทำแบบเดียวกัน" — แบ่ง VAT/WHT รวมด้านบนออกเป็นส่วน "จ่ายแล้ว" กับ "ยังไม่จ่าย" ตาม
+    // สัดส่วนที่ชำระจริงของแต่ละใบ (ใบไหนจ่ายไปแล้ว 60% ของ netPayable ก็นับ VAT/WHT ของใบ
+    // นั้น 60% เข้าฝั่ง "จ่ายแล้ว" ที่เหลือ 40% เข้าฝั่ง "ยังไม่จ่าย") รวมกันแล้วเท่ากับ
+    // execTotalVat/execTotalWht ด้านบนเป๊ะๆ เพื่อให้ตัวเลข 3 การ์ดสอดคล้องกันเสมอ
+    let execVatPaid = 0, execVatUnpaid = 0, execWhtPaid = 0, execWhtUnpaid = 0;
+    execInvoicedDocs.forEach(d=>{
+      const t = Calc.computeTotals(d);
+      const remaining = Calc.remainingBalance(d);
+      const paidPortion = Math.max(0, t.netPayable - remaining);
+      const ratio = t.netPayable > 0 ? (paidPortion / t.netPayable) : 0;
+      execVatPaid += t.vat * ratio;
+      execVatUnpaid += t.vat * (1-ratio);
+      execWhtPaid += t.wht * ratio;
+      execWhtUnpaid += t.wht * (1-ratio);
+    });
+    document.getElementById('exec-paid-vat').textContent = Utils.formatMoney(execVatPaid);
+    document.getElementById('exec-paid-wht').textContent = Utils.formatMoney(execWhtPaid);
+    document.getElementById('exec-unpaid-vat').textContent = Utils.formatMoney(execVatUnpaid);
+    document.getElementById('exec-unpaid-wht').textContent = Utils.formatMoney(execWhtUnpaid);
+
     const draftCount = docs.filter(d=>d.status==='Draft').length;
     const paidCount = docs.filter(d=>d.status==='Paid').length;
     const overdueCount = docs.filter(d=>d.status==='Overdue').length;
@@ -7662,19 +7774,11 @@ const Render = {
     Render.renderTrend('trend-revenue-month', totalsByMonth[5].revSum, totalsByMonth[4].revSum);
     Render.renderTrend('trend-month-docs', totalsByMonth[5].count, totalsByMonth[4].count);
 
-    const recent = Documents.list().slice(0,8);
-    const tbody = document.querySelector('#dashboard-recent-table tbody');
-    tbody.innerHTML = recent.length ? recent.map(d=>{
-      const t = Calc.computeTotals(d);
-      return `<tr>
-        <td class="nowrap">${Utils.escapeHtml(d.docNumber)}</td>
-        <td>${d.type}</td>
-        <td class="nowrap">${Utils.formatDateThai(d.date)}</td>
-        <td>${Utils.escapeHtml((d.customer&&d.customer.name)||'')}</td>
-        <td class="text-right">${Utils.formatCurrency(t.netPayable)}</td>
-        <td>${Render.badgeHtml(d.status)}</td>
-      </tr>`;
-    }).join('') : `<tr><td colspan="6" class="empty-state">ยังไม่มีเอกสาร</td></tr>`;
+    // "ไม่อยากเอาอันนี้ ควรเติมอะไรเพิ่มดี" — เปลี่ยนจากตาราง "เอกสารล่าสุด" (flat log, ไม่มี
+    // insight, โชว์ QT/INV ยอดเท่ากันแล้วดูซ้ำ/งง) เป็น "ลูกค้ายอดขายสูงสุด" แทน — เรียกใช้
+    // Reports._renderTopCustomers() ตัวเดียวกับ Sales Report Dashboard (ไม่เขียน logic ซ้ำ)
+    // นับทั้ง QT+INV ที่ไม่ยกเลิก สะสมทั้งหมด ไม่จำกัดเดือน (มุมมองภาพรวมลูกค้ารายใหญ่)
+    Reports._renderTopCustomers('dashboard-top-customers', docs.filter(d=>d.status!=='Cancelled'), 5);
 
     Render.arAging();
   },
@@ -12680,6 +12784,14 @@ function wireEvents(){
   Render.initSidebarGroups();
   document.getElementById('btn-user-guide').addEventListener('click', ()=> Modals.open('modal-user-guide'));
   document.getElementById('btn-report-issue').addEventListener('click', ()=> Modals.open('modal-helpdesk-notice'));
+  // "ยอดงง ควรทำให้ไม่งงไหม" — พับ/กางแถวชิป KPI ละเอียดบน Dashboard (ค่าเริ่มต้นพับไว้)
+  document.getElementById('btn-toggle-dash-details').addEventListener('click', (e)=>{
+    const grid = document.getElementById('dash-chip-grid');
+    const showing = grid.style.display !== 'none';
+    grid.style.display = showing ? 'none' : '';
+    e.target.setAttribute('aria-expanded', String(!showing));
+    e.target.textContent = showing ? '📊 ดูรายละเอียดเพิ่มเติม' : '📊 ซ่อนรายละเอียด';
+  });
   document.getElementById('btn-notif-bell').addEventListener('click', (e)=>{
     e.stopPropagation();
     Notifications.toggle();

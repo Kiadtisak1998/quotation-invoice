@@ -3258,7 +3258,7 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
 
       <div class="field"><label>วันที่รับชำระ <span style="color:var(--red);">*</span></label><input type="date" id="rp-payment-date"></div>
       <div class="field"><label>วันที่เงินเข้าบัญชี</label><input type="date" id="rp-bank-date"></div>
-      <div class="field"><label>ยอดเงินเข้าจริง <span style="color:var(--red);">*</span></label><input type="number" id="rp-cash-received" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="field"><label>ยอดเงินเข้าจริง <span style="color:var(--red);">*</span></label><input type="text" inputmode="decimal" id="rp-cash-received" placeholder="0.00"></div>
       <div class="field">
         <label>WHT ที่ลูกค้าหัก</label>
         <input type="number" id="rp-wht-amount" step="0.01" min="0" placeholder="0.00">
@@ -3304,7 +3304,7 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
 
       <div class="field"><label>วันที่รับชำระ <span style="color:var(--red);">*</span></label><input type="date" id="rpb-payment-date"></div>
       <div class="field"><label>วันที่เงินเข้าบัญชี</label><input type="date" id="rpb-bank-date"></div>
-      <div class="field"><label>ยอดเงินเข้าจริงรวมทั้งหมด <span style="color:var(--red);">*</span></label><input type="number" id="rpb-total-cash" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="field"><label>ยอดเงินเข้าจริงรวมทั้งหมด <span style="color:var(--red);">*</span></label><input type="text" inputmode="decimal" id="rpb-total-cash" placeholder="0.00"></div>
       <div class="field"><label>ค่าธรรมเนียมธนาคาร (รวม)</label><input type="number" id="rpb-bank-fee" step="0.01" min="0" placeholder="0.00"></div>
       <div class="field"><label>วิธีรับชำระ</label>
         <select id="rpb-payment-method">
@@ -5168,8 +5168,40 @@ const Utils = {
   },
 
   num(v){
-    const n = parseFloat(v);
+    // strips thousand-separator commas first — "ยอดเงินเข้าจริง"/"ยอดเงินเข้าจริงรวมทั้งหมด"
+    // now format with "," live while typing (see Utils.formatLiveNumber / wireThousandsInput),
+    // so every other place that reads these fields via Utils.num must tolerate commas too.
+    const n = parseFloat(String(v).replace(/,/g,''));
     return isNaN(n) ? 0 : n;
+  },
+
+  /** Reformats a raw text-input value with "," thousand separators as the user types,
+   *  keeping at most one decimal point and 2 decimal digits. Used for money inputs that
+   *  were switched from type="number" to type="text" so commas can render live
+   *  (native type="number" inputs reject non-digit characters like ","). */
+  formatLiveNumber(v){
+    if(v == null) return '';
+    let s = String(v).replace(/,/g,'');
+    const neg = s.trim().charAt(0) === '-';
+    s = s.replace(/-/g,'');
+    const dotIdx = s.indexOf('.');
+    let intPart = dotIdx === -1 ? s : s.slice(0, dotIdx);
+    let decPart = dotIdx === -1 ? '' : '.' + s.slice(dotIdx+1).replace(/\./g,'').slice(0,2);
+    intPart = intPart.replace(/[^0-9]/g,'').replace(/^0+(?=\d)/, '');
+    intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return (neg?'-':'') + intPart + decPart;
+  },
+
+  /** Wires a text input (id) so it live-formats with thousand separators on every
+   *  keystroke, cursor pinned to the end (fine for short right-aligned money fields
+   *  typed left-to-right). Call this once per field during wireEvents(). */
+  wireThousandsInput(id){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('input', ()=>{
+      el.value = Utils.formatLiveNumber(el.value);
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
   },
 
   formatMoney(n){
@@ -9737,7 +9769,7 @@ const Actions = {
       const netRatio = t.grandTotal > 0.004 ? (t.netPayable / t.grandTotal) : 1;
       return s + Utils.round2(remaining * netRatio);
     }, 0);
-    document.getElementById('rpb-total-cash').value = totalNetRemaining.toFixed(2);
+    document.getElementById('rpb-total-cash').value = Utils.formatLiveNumber(totalNetRemaining.toFixed(2));
 
     document.querySelectorAll('.rpb-row-cash, .rpb-row-wht').forEach(inp=>{
       inp.addEventListener('input', Actions.updateReceivePaymentBatchPreview);
@@ -12801,6 +12833,10 @@ function wireEvents(){
   document.getElementById('btn-save-receive-payment').addEventListener('click', Actions.submitReceivePayment);
   document.getElementById('btn-overpayment-confirm').addEventListener('click', Actions.confirmOverpaymentReason);
   document.getElementById('btn-cancel-receipt-confirm').addEventListener('click', Actions.confirmCancelReceipt);
+  // live "," thousand-separator formatting must be wired BEFORE the calc listener below,
+  // since both are 'input' listeners on the same element and fire in registration order —
+  // this way autoCalcWht/updateReceivePaymentPreview always read the already-formatted value.
+  Utils.wireThousandsInput('rp-cash-received');
   document.getElementById('rp-cash-received').addEventListener('input', ()=>{
     Actions.autoCalcWht();
     Actions.updateReceivePaymentPreview();
@@ -12828,6 +12864,7 @@ function wireEvents(){
   });
   document.getElementById('btn-bulk-receive-payment').addEventListener('click', Actions.openReceivePaymentBatch);
   document.getElementById('btn-bulk-payment-clear').addEventListener('click', Actions.clearOutstandingSelection);
+  Utils.wireThousandsInput('rpb-total-cash');
   document.getElementById('rpb-total-cash').addEventListener('input', Actions.recomputeBatchAllocation);
   document.getElementById('btn-save-receive-payment-batch').addEventListener('click', Actions.submitReceivePaymentBatch);
   document.getElementById('rpb-attachment-file').addEventListener('change', (e)=>{

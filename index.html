@@ -2972,7 +2972,7 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
           </div>
           <div style="overflow-x:auto;">
             <table class="data-table" id="admin-users-table">
-              <thead><tr><th>ชื่อที่แสดง</th><th>Username</th><th>Role ปัจจุบัน</th><th>เปลี่ยน Role</th><th>สมัครเมื่อ</th><th>จัดการ</th></tr></thead>
+              <thead><tr><th>ชื่อที่แสดง</th><th>Username</th><th>Role ปัจจุบัน</th><th>เปลี่ยน Role</th><th>อีเมลแจ้งเตือน (สำหรับลิงก์อนุมัติทางอีเมล)</th><th>สมัครเมื่อ</th><th>จัดการ</th></tr></thead>
               <tbody></tbody>
             </table>
             <div class="empty-state" id="admin-users-empty" style="display:none;">ยังไม่มีผู้ใช้งาน หรือยังไม่ได้เชื่อมต่อ Supabase</div>
@@ -4835,6 +4835,20 @@ const Auth = {
     return true;
   },
 
+  /** Admin-only: sets a user's REAL notification email (profiles.notify_email),
+   *  used by the send-approval-email Edge Function to know where to send an
+   *  "รออนุมัติ" link when that user has the 'authorized' role. Separate from
+   *  profiles.email, which is a synthetic <username>@users.local address that
+   *  Supabase Auth requires but that is never a real inbox — see
+   *  supabase-migration-email-approval.sql. Pass '' to clear it. */
+  async setUserNotifyEmail(userId, email){
+    if(!Cloud.isEnabled()) return false;
+    const { error } = await Cloud.client.from('profiles')
+      .update({ notify_email: email || null, updated_at: new Date().toISOString() }).eq('id', userId);
+    if(error){ console.error('Auth.setUserNotifyEmail failed', error); return false; }
+    return true;
+  },
+
   /** Whether the CURRENTLY logged-in user may switch to the given company id.
    *  Admin bypasses the allow-list entirely (same rule as every other
    *  admin-always-full-access permission in this app). */
@@ -4984,6 +4998,67 @@ const ActivityLog = {
     }catch(err){
       // Logging must never be allowed to break the action it's documenting.
       console.error('ActivityLog.log failed', err);
+    }
+  }
+};
+
+/* ============================================================================
+   EMAIL APPROVAL — "อยากสร้างฟังชั่น ตอนสร้างใบเสนอราคาเสร็จแล้ว ส่งให้ผู้มีอำนาจอนุมัติ
+   อยากให้สามารถอนุมัติใน html เเละอนุมัติ จากเมล์ที่ส่งเข้าไปให้หัวหน้า จาก ผู้จัดทำใบเสนอราคา"
+   — simplified per follow-up "อยากเอาแค่ส่งแจ้งเตือนว่ามีอนุมัติในเมล์ แล้วให้กดลิงก์แล้วเข้า
+   web ก็พอ": this only sends a heads-up email; there is no approve-from-email
+   token/flow, the link just opens the app and the approver logs in and
+   approves exactly as before. Thin client for the send-approval-email
+   Supabase Edge Function (see supabase-functions/send-approval-email/index.ts
+   in this project's folder — must be deployed manually via the Supabase
+   Dashboard/CLI, same as every other server-side piece of this app, since the
+   connected Supabase tooling here can't reach this app's real project).
+   Fire-and-forget by design, same "never block the real action" philosophy as
+   ActivityLog.log() above — a failed/unsent notification email must never
+   stop the in-app submit-for-approval flow, since approving from inside the
+   app always still works regardless of whether this email step succeeds. */
+const EmailApproval = {
+  /** Builds the Edge Function URL from whatever Supabase project this device is
+   *  pointed at (same DB.settings.supabaseUrl / DEFAULT_SUPABASE_URL fallback
+   *  Cloud.init() uses), so this keeps working even if the project URL is ever
+   *  changed from Settings instead of staying hardcoded to one project. */
+  _functionUrl(name){
+    const base = ((DB && DB.settings && DB.settings.supabaseUrl) || DEFAULT_SUPABASE_URL || '').trim().replace(/\/$/, '');
+    return base ? `${base}/functions/v1/${name}` : '';
+  },
+
+  /** Called right after Documents.submitForApproval() succeeds (see
+   *  Editor.submitForApproval below). Silently does nothing when Cloud isn't
+   *  connected — there is no server to call an Edge Function on in local-only
+   *  mode, and the in-app approvals queue keeps working exactly as before
+   *  regardless. */
+  async sendForDocument(documentId){
+    if(!Cloud.isEnabled()) return;
+    const url = EmailApproval._functionUrl('send-approval-email');
+    if(!url) return;
+    try{
+      const { data: sessionData } = await Cloud.client.auth.getSession();
+      const accessToken = sessionData && sessionData.session && sessionData.session.access_token;
+      if(!accessToken) return; // not authenticated via Supabase Auth — nothing to call the function with
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ documentId })
+      });
+      const result = await resp.json().catch(()=>({}));
+      if(result && result.success){
+        Utils.toast(`ส่งอีเมลแจ้งผู้มีอำนาจอนุมัติแล้ว (${(result.sentTo||[]).length} คน)`, 'ok');
+      }else if(result && result.reason === 'no-approver-email'){
+        // Not something the preparer themselves can fix — surfaced gently so
+        // someone notices, without making the submit-for-approval action
+        // itself (which DID succeed) look like it failed.
+        Utils.toast('ส่งอนุมัติสำเร็จ แต่ยังไม่มีอีเมลผู้อนุมัติตั้งไว้ในระบบ (แจ้ง Admin ตั้งค่าที่ Admin > Users)');
+      }else if(result && result.error){
+        console.warn('EmailApproval.sendForDocument:', result.error);
+      }
+    }catch(err){
+      // Deliberately silent to the user beyond the console — see file header.
+      console.warn('EmailApproval.sendForDocument failed', err);
     }
   }
 };
@@ -7308,6 +7383,11 @@ const Render = {
           </select>
           <button class="btn btn-sm btn-primary" onclick="Actions.saveUserRole('${p.id}')">บันทึก</button>
         </td>
+        <td>
+          <input type="email" class="admin-notify-email-input" data-user-id="${p.id}" placeholder="เช่น somchai@company.com"
+                 value="${Utils.escapeHtml(p.notify_email || '')}" style="width:180px;margin-right:6px;">
+          <button class="btn btn-sm" onclick="Actions.saveUserNotifyEmail('${p.id}')">💾</button>
+        </td>
         <td>${p.created_at ? Utils.formatDateThai(p.created_at.slice(0,10)) : '-'}</td>
         <td>
           <button class="btn btn-sm" onclick="Modals.openResetPassword('${p.id}')">🔑 รีเซ็ตรหัสผ่าน</button>
@@ -8834,6 +8914,11 @@ const Editor = {
       Editor.renderWorkflow();
       Render.dashboard();
       Utils.toast('ส่งอนุมัติเรียบร้อย — รอผู้มีอำนาจอนุมัติ', 'ok');
+      // "อยากเอาแค่ส่งแจ้งเตือนว่ามีอนุมัติในเมล์ แล้วให้กดลิงก์แล้วเข้า web ก็พอ" — fire off
+      // the notify-only email right after the in-app submit succeeds. Fire-and-
+      // forget: EmailApproval.sendForDocument never throws, so a slow/failed
+      // email can't undo or block the submit that already succeeded above.
+      EmailApproval.sendForDocument(d.id);
     }catch(err){
       Utils.toast(err.message || 'ส่งอนุมัติไม่สำเร็จ', 'err');
     }
@@ -10492,6 +10577,24 @@ const Actions = {
     }else{
       Utils.toast('อัปเดต Role ไม่สำเร็จ', 'err');
     }
+  },
+
+  /** Admin > Users > "อีเมลแจ้งเตือน" column — sets the REAL, reachable email
+   *  address (profiles.notify_email) used only by send-approval-email to
+   *  notify an 'authorized' user by email when a Quotation is submitted. This
+   *  is deliberately separate from the user's login (profiles.email, which is
+   *  a synthetic <username>@users.local address — see EmailApproval above and
+   *  supabase-migration-email-approval.sql). Blank is valid (clears it). */
+  async saveUserNotifyEmail(userId){
+    const input = document.querySelector(`.admin-notify-email-input[data-user-id="${userId}"]`);
+    if(!input) return;
+    const email = input.value.trim();
+    if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+      Utils.toast('รูปแบบอีเมลไม่ถูกต้อง', 'err');
+      return;
+    }
+    const ok = await Auth.setUserNotifyEmail(userId, email);
+    Utils.toast(ok ? 'บันทึกอีเมลแจ้งเตือนสำเร็จ' : 'บันทึกอีเมลแจ้งเตือนไม่สำเร็จ', ok ? 'ok' : 'err');
   },
 
   /** Admin > Users: reads the "เพิ่มผู้ใช้งานใหม่" modal form, validates it, and

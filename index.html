@@ -4234,6 +4234,12 @@ const Storage = {
     Utils.downloadBlob(blob, `qis-backup-${stamp}.json`);
     Utils.toast('Export ฐานข้อมูลสำเร็จ', 'ok');
   },
+  // "ไม่ต้องตั้งไว้ เด้ะจะมาทำเอง" — an automatic 15-day trigger for exportJSON() was
+  // built and wired into afterAuthResolved(), then removed again at the user's
+  // request (it was firing more often than intended when testing across multiple
+  // tabs/incognito windows, and the user preferred to just use the manual "Export
+  // Database (JSON)" button below themselves for now). Left out entirely rather than
+  // dead code — see git/commit history if this needs to be resurrected later.
   importJSON(fileObj, cb){
     const reader = new FileReader();
     reader.onload = (e)=>{

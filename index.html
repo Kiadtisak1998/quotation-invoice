@@ -1113,6 +1113,10 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
 .dash-company-select-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;background:rgba(255,255,255,0.04);border:1px solid var(--gray-200);border-radius:12px;padding:10px 16px;}
 .dash-company-select-bar label{font-weight:600;font-size:13px;color:var(--gray-500);white-space:nowrap;}
 .dash-company-select-bar select{flex:1;max-width:340px;padding:7px 10px;border-radius:8px;border:1px solid var(--gray-300);background:var(--surface-1, #0f1a2e);color:inherit;font-size:13.5px;}
+.dash-company-select-bar select:disabled{opacity:0.75;cursor:default;}
+/* "อยากให้เห็นยอด ใบเสนอราคา/ใบแจ้งหนี้ ตามบริษัทลูกค้าด้วยอะครับ เเละก็รวมด้วย" — แถวรวมท้าย
+   ตาราง "สรุปยอดแยกตามลูกค้า" บน Dashboard ให้ตัวหนา + เส้นคั่นด้านบน แยกจากแถวข้อมูลปกติชัดๆ. */
+.dash-customer-summary-total-row td{font-weight:700;border-top:2px solid var(--gray-300);}
 .type-hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:18px;}
 @media (max-width:1000px){.type-hero-grid{grid-template-columns:1fr;}}
 .type-hero-card{position:relative;border-radius:18px;padding:22px 24px;overflow:hidden;box-shadow:var(--shadow-md);border:1px solid var(--gray-200);}
@@ -2023,6 +2027,20 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
           <label for="dashboard-company-select">📍 ดูข้อมูลของบริษัท</label>
           <select id="dashboard-company-select" aria-label="เลือกบริษัทที่จะดูใน Dashboard"></select>
         </div>
+        <!-- "อยากให้เห็นว่า สร้างใบเสนอราคา/ใบแจ้งหนี้ แต่ละ บ. ยอดเท่าไหร่กันบ้าง" — ตารางเปรียบเทียบ
+             ยอด QT/INV ของทุกบริษัทที่ผู้ใช้คนนี้มีสิทธิ์เห็นพร้อมกันในหน้าเดียว (ต่างจาก dropdown ด้านบน
+             ที่ต้องสลับเข้าไปดูทีละบริษัท) — ซ่อนไว้เมื่อมีสิทธิ์บริษัทเดียว เพราะไม่มีอะไรให้เทียบ ดึงข้อมูล
+             ตรงจาก Supabase แบบ read-only ต่อบริษัท (Cloud.fetchCompanySummary) ไม่แตะ Workspace/DB
+             ปัจจุบันเลย เพื่อไม่ให้กระทบข้อมูลที่กำลังดูอยู่ — ดู Render.dashboard() ส่วน
+             renderDashboardCompanySummary(). -->
+        <div class="card" id="dashboard-company-summary-card" style="display:none;">
+          <div class="card-title">🏢 สรุปยอดแยกตามบริษัท <span class="muted">เทียบทุกบริษัทที่มีสิทธิ์เห็นพร้อมกัน</span></div>
+          <table class="data-table" id="dashboard-company-summary-table">
+            <thead><tr><th>บริษัท</th><th class="text-right">ยอดใบเสนอราคารวม</th><th class="text-right">ยอดใบแจ้งหนี้รวม</th></tr></thead>
+            <tbody id="dashboard-company-summary-tbody"></tbody>
+          </table>
+          <div class="muted" id="dashboard-company-summary-loading" style="padding:8px 2px;">กำลังโหลดยอดของแต่ละบริษัท...</div>
+        </div>
         <div class="type-hero-grid">
           <div class="type-hero-card type-qt">
             <div class="type-hero-bigicon">📄</div>
@@ -2092,6 +2110,28 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
             <div style="text-align:right;margin-top:14px;position:relative;z-index:1;">
               <button type="button" class="btn btn-sm" onclick="Render.showView('invoices')">ดูทั้งหมด →</button>
             </div>
+          </div>
+        </div>
+
+        <!-- "หมายถึงอยากให้เห็นยอด ใบเสนอราคา/ใบแจ้งหนี้ ตามบริษัทลูกค้าด้วยอะครับ เเละก็รวมด้วย" —
+             ผู้ใช้ตั้งใจจะให้แยกตาม "บริษัทลูกค้า" (customer) ของบริษัทที่กำลังดูอยู่ ไม่ใช่แยกตาม
+             Workspace/บริษัทตัวเอง (อันนั้นคือการ์ด "สรุปยอดแยกตามบริษัท" ด้านบน) — ตารางนี้จับคู่
+             ยอด QT (grandTotal) กับยอด INV (netPayable) ต่อลูกค้า 1 คน จาก qtActiveDocs/invActiveDocs
+             ชุดเดียวกับการ์ดใหญ่ด้านบนเป๊ะๆ (จึงยอดรวมท้ายตารางต้องตรงกับยอดในการ์ดใหญ่ทั้งคู่) —
+             ดู Render.dashboard() ส่วน renderDashboardCustomerSummary(). -->
+        <div class="card">
+          <div class="card-title">👤 สรุปยอดแยกตามลูกค้า <span class="muted" style="font-weight:400;font-size:11.5px;">ของบริษัทที่กำลังดูอยู่</span></div>
+          <div style="overflow-x:auto;">
+            <table class="data-table" id="dashboard-customer-summary-table">
+              <thead><tr><th>ลูกค้า</th><th class="text-right">ยอดใบเสนอราคา</th><th class="text-right">ยอดใบแจ้งหนี้</th></tr></thead>
+              <tbody id="dashboard-customer-summary-tbody"></tbody>
+              <tfoot><tr class="dash-customer-summary-total-row">
+                <td>รวมทั้งหมด</td>
+                <td class="text-right" id="dashboard-customer-summary-qt-total">฿0</td>
+                <td class="text-right" id="dashboard-customer-summary-inv-total">฿0</td>
+              </tr></tfoot>
+            </table>
+            <div class="empty-state" id="dashboard-customer-summary-empty" style="display:none;">ยังไม่มีเอกสาร</div>
           </div>
         </div>
 
@@ -4650,6 +4690,48 @@ const Cloud = {
     });
 
     return { customers, documents };
+  },
+
+  /** "อยากให้เห็นว่า สร้างใบเสนอราคา/ใบแจ้งหนี้ แต่ละ บ. ยอดเท่าไหร่กันบ้าง" — เหมือน pullAll()
+   *  ด้านบนทุกอย่าง (join documents+document_items กลับมาเป็น doc object ที่ Calc.computeTotals
+   *  ใช้ได้ตรงๆ) แต่รับ companyId เป็นพารามิเตอร์แทนการอ่านจาก Workspace.getCurrentId() เสมอ —
+   *  ใช้สำหรับดึง "ดูยอดของบริษัทอื่นแบบอ่านอย่างเดียว" โดยไม่ต้อง Workspace.switchTo() (ซึ่งจะ
+   *  เปลี่ยน DB/localStorage ที่กำลังใช้งานอยู่จริง) ไม่ดึง customers เพราะสรุปนี้ต้องการแค่ยอดเงิน
+   *  ไม่ใช้ชื่อลูกค้า — เร็วกว่าและลด query โดยไม่จำเป็น */
+  async fetchCompanySummary(companyId){
+    if(!Cloud.isEnabled()) return { qtTotal:0, qtCount:0, invTotal:0, invCount:0 };
+    const [docRes, itemRes] = await Promise.all([
+      Cloud.client.from('documents').select('*').eq('company_id', companyId),
+      Cloud.client.from('document_items').select('*').eq('company_id', companyId).order('seq', {ascending:true})
+    ]);
+    if(docRes.error) throw docRes.error;
+    if(itemRes.error) throw itemRes.error;
+    const itemsByDoc = {};
+    (itemRes.data||[]).forEach(row=>{
+      if(!itemsByDoc[row.document_id]) itemsByDoc[row.document_id] = [];
+      itemsByDoc[row.document_id].push({
+        id: Utils.uid('it'), productId: row.product_id||null,
+        description: row.description||'', qty: row.qty, unit: row.unit||'',
+        price: row.unit_price, discountPct: row.discount_pct, amount: row.amount
+      });
+    });
+    const documents = (docRes.data||[]).map(row=>{
+      const base = Object.assign({}, row.data||{});
+      base.id = row.id; base.type = row.type; base.status = row.status;
+      base.items = itemsByDoc[row.id] || [];
+      return base;
+    });
+    // ใช้สูตรเดียวกับการ์ดใหญ่ QT/INV บน Dashboard เป๊ะๆ (Render.dashboard: qtActiveDocs/
+    // invActiveDocs) — QT ใช้ grandTotal, INV ใช้ netPayable, ไม่นับ Cancelled — เพื่อให้ยอด
+    // ในตารางเปรียบเทียบนี้ตรงกับยอดที่จะเห็นถ้าสลับเข้าไปดูบริษัทนั้นจริงๆ ทุกตัวเลข
+    const qtDocs = documents.filter(d=> d.type==='QT' && d.status!=='Cancelled');
+    const invDocs = documents.filter(d=> d.type==='INV' && d.status!=='Cancelled');
+    return {
+      qtTotal: qtDocs.reduce((s,d)=> s + Calc.computeTotals(d).grandTotal, 0),
+      qtCount: qtDocs.length,
+      invTotal: invDocs.reduce((s,d)=> s + Calc.computeTotals(d).netPayable, 0),
+      invCount: invDocs.length
+    };
   },
 
   /* everything below this point lives on Cloud only because it needs Cloud.client;
@@ -7726,17 +7808,52 @@ const Render = {
     // เลย (ใช้ Workspace.allowedList()/switchTo() ชุดเดียวกับแถบข้าง #company-switcher-select) —
     // ซ่อนไว้เมื่อผู้ใช้คนนี้มีสิทธิ์แค่บริษัทเดียว (เช่น ผู้จัดทำ/ผู้อนุมัติที่ถูกจำกัดสิทธิ์แล้ว
     // ไม่มีอะไรให้สลับ ก็ไม่ต้องโชว์ dropdown เปล่าๆ ให้งง).
+    // "อยากให้ทุกคนดูตรงนี้ได้หมด" — เดิมซ่อนแถบนี้ไปเลยถ้ามีสิทธิ์แค่บริษัทเดียว (เช่น
+    // ผู้จัดทำ/ผู้อนุมัติที่ถูกจำกัดสิทธิ์แล้ว) เปลี่ยนเป็นโชว์ให้ทุกคนเห็นเสมอ เพื่อให้รู้ชัดๆ ว่า
+    // กำลังดูยอดของบริษัทไหนอยู่ — แค่ถ้ามีสิทธิ์บริษัทเดียว จะ disable ตัว select ไว้ (มีตัวเลือก
+    // เดียวให้เลือกอยู่แล้ว ไม่มีอะไรให้สลับจริงๆ) กันสับสนว่าเป็นปุ่มที่กดสลับได้.
     (function renderDashboardCompanySelect(){
       const bar = document.getElementById('dashboard-company-select-bar');
       const sel = document.getElementById('dashboard-company-select');
       if(!bar || !sel) return;
       const options = Workspace.allowedList();
-      if(options.length <= 1){ bar.style.display = 'none'; return; }
       bar.style.display = '';
+      sel.disabled = options.length <= 1;
       const currentId = Workspace.getCurrentId();
       sel.innerHTML = options.map(c=>
         `<option value="${c.id}" ${c.id === currentId ? 'selected' : ''}>${Utils.escapeHtml(c.name)}</option>`
       ).join('');
+    })();
+    // "อยากให้เห็นว่า สร้างใบเสนอราคา/ใบแจ้งหนี้ แต่ละ บ. ยอดเท่าไหร่กันบ้าง" — ตารางเทียบยอด
+    // QT/INV ของทุกบริษัทที่มีสิทธิ์เห็น พร้อมกันในหน้าเดียว (ดูคอมเมนต์ตรง HTML การ์ดนี้) — ซ่อนไว้
+    // เมื่อมีสิทธิ์บริษัทเดียว เพราะไม่มีอะไรให้เทียบ ดึงแบบ async ทีละบริษัทผ่าน
+    // Cloud.fetchCompanySummary() (read-only ไม่แตะ Workspace/DB ปัจจุบัน) แล้วค่อยเติมตาราง
+    // เพื่อไม่ให้บล็อกส่วนอื่นของ Dashboard ที่ render แบบ sync อยู่แล้ว.
+    (function renderDashboardCompanySummary(){
+      const card = document.getElementById('dashboard-company-summary-card');
+      const tbody = document.getElementById('dashboard-company-summary-tbody');
+      const loadingEl = document.getElementById('dashboard-company-summary-loading');
+      if(!card || !tbody) return;
+      const options = Workspace.allowedList();
+      if(options.length <= 1 || !Cloud.isEnabled()){ card.style.display = 'none'; return; }
+      card.style.display = '';
+      tbody.innerHTML = '';
+      if(loadingEl) loadingEl.style.display = '';
+      Promise.all(options.map(c=>
+        Cloud.fetchCompanySummary(c.id).then(s=> Object.assign({ id:c.id, name:c.name }, s))
+                                        .catch(()=> ({ id:c.id, name:c.name, qtTotal:0, qtCount:0, invTotal:0, invCount:0, _err:true }))
+      )).then(rows=>{
+        // ถ้า Dashboard ถูกสลับออกไปหน้าอื่น หรือสลับบริษัทระหว่างที่กำลังโหลดอยู่พอดี ตารางนี้
+        // อาจไม่อยู่บน DOM แล้ว หรือ user คนละคน — เช็ค element ซ้ำก่อนเขียนกันข้อมูลเพี้ยน
+        const tbodyNow = document.getElementById('dashboard-company-summary-tbody');
+        if(!tbodyNow) return;
+        if(loadingEl) loadingEl.style.display = 'none';
+        tbodyNow.innerHTML = rows.map(r=> `<tr>
+          <td>${Utils.escapeHtml(r.name)}${r._err ? ' <span class="muted">(โหลดไม่สำเร็จ)</span>' : ''}</td>
+          <td class="text-right">${Utils.formatCurrency(r.qtTotal)}<div class="rk-subvalue">${r.qtCount} ฉบับ</div></td>
+          <td class="text-right">${Utils.formatCurrency(r.invTotal)}<div class="rk-subvalue">${r.invCount} ฉบับ</div></td>
+        </tr>`).join('');
+      });
     })();
     const docs = DB.documents;
     const qtCount = docs.filter(d=>d.type==='QT').length;
@@ -7955,6 +8072,44 @@ const Render = {
     // "อยากให้หน้า Dashboard มีแค่นี้" — การ์ด "ลูกค้ายอดใบเสนอราคา/ใบแจ้งหนี้สูงสุด" ถูกเอาออก
     // จาก HTML แล้ว เลยเอา 2 บรรทัดที่เคย render เข้าการ์ดนั้นออกไปด้วย (Reports._renderTopCustomers
     // เองก็ null-check ให้อยู่แล้ว จะไม่ error ถ้าเรียกทิ้งไว้ แต่เอาออกให้ชัดว่าไม่ได้ใช้ต่อแล้ว)
+
+    // "หมายถึงอยากให้เห็นยอด ใบเสนอราคา/ใบแจ้งหนี้ ตามบริษัทลูกค้าด้วยอะครับ เเละก็รวมด้วยอะครับ" —
+    // ตารางแยกยอดตามลูกค้า (ของบริษัทที่กำลังดูอยู่ ไม่ใช่ข้ามบริษัท) ใช้ qtActiveDocs/invActiveDocs
+    // ชุดเดียวกับการ์ดใหญ่ 2 ใบด้านบนเป๊ะๆ เพื่อให้แถว "รวมทั้งหมด" ท้ายตารางตรงกับยอดในการ์ดใหญ่
+    // ทั้งคู่เสมอ (กันปัญหาเลขไม่ตรงกันแบบที่เจอตอนทำกราฟแท่ง QT/INV รอบก่อน).
+    (function renderDashboardCustomerSummary(){
+      const tbody = document.getElementById('dashboard-customer-summary-tbody');
+      const emptyEl = document.getElementById('dashboard-customer-summary-empty');
+      const qtTotalEl = document.getElementById('dashboard-customer-summary-qt-total');
+      const invTotalEl = document.getElementById('dashboard-customer-summary-inv-total');
+      if(!tbody) return;
+      const byCustomer = {};
+      const touch = (name)=>{
+        if(!byCustomer[name]) byCustomer[name] = { name, qt:0, inv:0 };
+        return byCustomer[name];
+      };
+      qtActiveDocs.forEach(d=>{
+        const name = (d.customer && d.customer.name) || '(ไม่ระบุลูกค้า)';
+        touch(name).qt += Calc.computeTotals(d).grandTotal;
+      });
+      invActiveDocs.forEach(d=>{
+        const name = (d.customer && d.customer.name) || '(ไม่ระบุลูกค้า)';
+        touch(name).inv += Calc.computeTotals(d).netPayable;
+      });
+      const rows = Object.values(byCustomer).sort((a,b)=> (b.qt+b.inv) - (a.qt+a.inv));
+      tbody.innerHTML = rows.map(r=> `<tr>
+        <td>${Utils.escapeHtml(r.name)}</td>
+        <td class="text-right">${Utils.formatCurrency(r.qt)}</td>
+        <td class="text-right">${Utils.formatCurrency(r.inv)}</td>
+      </tr>`).join('');
+      if(emptyEl) emptyEl.style.display = rows.length ? 'none' : '';
+      // รวมจากแถวลูกค้าเอง (ไม่ใช่ qtTotalAmount/execTotalInvoiced ตรงๆ) เผื่อวันหลังมีการกรอง
+      // เอกสารเพิ่มเติมสำหรับตารางนี้โดยเฉพาะ — ตอนนี้ชุดข้อมูลเดียวกันเป๊ะจึงเลขจะตรงกันอยู่แล้ว
+      const qtSum = rows.reduce((s,r)=> s + r.qt, 0);
+      const invSum = rows.reduce((s,r)=> s + r.inv, 0);
+      if(qtTotalEl) qtTotalEl.textContent = Utils.formatCurrency(qtSum);
+      if(invTotalEl) invTotalEl.textContent = Utils.formatCurrency(invSum);
+    })();
 
     // "รายการล่าสุด" ตามภาพตัวอย่าง — รวม QT+INV ล่าสุด 5 รายการ เรียงตามวันที่ (ใหม่สุดก่อน)
     // ต่างจาก Top Customer ด้านบนตรงที่นี่เป็น log เอกสารดิบ ไม่ใช่การจัดอันดับ จึงรวม QT+INV

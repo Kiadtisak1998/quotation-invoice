@@ -3041,7 +3041,7 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
           </div>
           <div style="overflow-x:auto;">
             <table class="data-table" id="admin-users-table">
-              <thead><tr><th>ชื่อที่แสดง</th><th>Username</th><th>Role ปัจจุบัน</th><th>เปลี่ยน Role</th><th>อีเมลแจ้งเตือน (สำหรับลิงก์อนุมัติทางอีเมล)</th><th>สมัครเมื่อ</th><th>จัดการ</th></tr></thead>
+              <thead><tr><th>ชื่อที่แสดง</th><th>Username</th><th>Role ปัจจุบัน</th><th>เปลี่ยน Role</th><th>อีเมลแจ้งเตือน (สำหรับลิงก์อนุมัติทางอีเมล) — ใส่ได้หลายอีเมล คั่นด้วย ,</th><th>สมัครเมื่อ</th><th>จัดการ</th></tr></thead>
               <tbody></tbody>
             </table>
             <div class="empty-state" id="admin-users-empty" style="display:none;">ยังไม่มีผู้ใช้งาน หรือยังไม่ได้เชื่อมต่อ Supabase</div>
@@ -7501,8 +7501,8 @@ const Render = {
           <button class="btn btn-sm btn-primary" onclick="Actions.saveUserRole('${p.id}')">บันทึก</button>
         </td>
         <td>
-          <input type="email" class="admin-notify-email-input" data-user-id="${p.id}" placeholder="เช่น somchai@company.com"
-                 value="${Utils.escapeHtml(p.notify_email || '')}" style="width:180px;margin-right:6px;">
+          <input type="email" multiple class="admin-notify-email-input" data-user-id="${p.id}" placeholder="เช่น somchai@company.com, someone@company.com"
+                 title="ใส่ได้หลายอีเมล คั่นด้วยจุลภาค (,)" value="${Utils.escapeHtml(p.notify_email || '')}" style="width:220px;margin-right:6px;">
           <button class="btn btn-sm" onclick="Actions.saveUserNotifyEmail('${p.id}')">💾</button>
         </td>
         <td>${p.created_at ? Utils.formatDateThai(p.created_at.slice(0,10)) : '-'}</td>
@@ -10918,16 +10918,25 @@ const Actions = {
    *  notify an 'authorized' user by email when a Quotation is submitted. This
    *  is deliberately separate from the user's login (profiles.email, which is
    *  a synthetic <username>@users.local address — see EmailApproval above and
-   *  supabase-migration-email-approval.sql). Blank is valid (clears it). */
+   *  supabase-migration-email-approval.sql). Blank is valid (clears it).
+   *  "อยากให้ใส่ได้หลายเมล์" — ใส่ได้หลายอีเมล คั่นด้วยจุลภาค (,) เก็บลง notify_email
+   *  ค่าเดียวเป็น string ที่รวมทุกอีเมลไว้แล้ว (ไม่ต้องแก้ schema/คอลัมน์เพิ่ม) — ฝั่ง
+   *  send-approval-email Edge Function เป็นคนแยก string นี้กลับเป็น array ตอนส่งอีเมลจริง
+   *  (ดูคอมเมนต์ในไฟล์นั้น ส่วน `to: ...`) ต้องแก้ทั้ง 2 ฝั่งพร้อมกัน ไม่งั้นอีเมลที่ 2 เป็นต้นไป
+   *  จะถูกเก็บไว้เฉยๆ แต่ไม่มีใครได้รับจริง. */
   async saveUserNotifyEmail(userId){
     const input = document.querySelector(`.admin-notify-email-input[data-user-id="${userId}"]`);
     if(!input) return;
-    const email = input.value.trim();
-    if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-      Utils.toast('รูปแบบอีเมลไม่ถูกต้อง', 'err');
+    const raw = input.value.trim();
+    const emails = raw.split(/[,;]+/).map(s=> s.trim()).filter(Boolean);
+    const invalid = emails.find(e=> !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+    if(invalid){
+      Utils.toast(`รูปแบบอีเมลไม่ถูกต้อง: ${invalid}`, 'err');
       return;
     }
-    const ok = await Auth.setUserNotifyEmail(userId, email);
+    const normalized = emails.join(', ');
+    input.value = normalized;
+    const ok = await Auth.setUserNotifyEmail(userId, normalized);
     Utils.toast(ok ? 'บันทึกอีเมลแจ้งเตือนสำเร็จ' : 'บันทึกอีเมลแจ้งเตือนไม่สำเร็จ', ok ? 'ok' : 'err');
   },
 

@@ -9418,6 +9418,27 @@ const Editor = {
   newDocument(type){
     UI.editingDocId = null;
     UI.editingDraft = Documents.blankDocument(type||'QT');
+    // "กดสร้างใบเสนอราคาแล้ว draft ให้หมดเลย" — เดิม auto-save เป็น Draft (Documents.autoSaveDraft,
+    // ดู Render.showView() guard ด้านบน) ทำงานเฉพาะตอนออกจากหน้า editor "แบบมีข้อมูลค้างอยู่"
+    // เท่านั้น (UI.editorDirty ต้องเป็น true ก่อน ซึ่งตั้งจาก input/change event ในฟอร์ม) — กด
+    // "สร้างใบเสนอราคา" แล้วยังไม่ทันพิมพ์อะไรเลยก็ปิดไป (สลับแท็บ/ปิดเบราว์เซอร์ก่อน) เอกสารจะไม่
+    // ถูกบันทึกเลย ไม่โผล่ในรายการ Draft — ผู้ใช้อยากให้กดปุ่มสร้างปุ๊บ บันทึกเป็น Draft ทันที ไม่ต้อง
+    // รอให้พิมพ์อะไรก่อน จึงเรียก Documents.autoSaveDraft() (ตัวเดิม ไม่บล็อก validation ปกติ ใส่
+    // placeholder ชื่อลูกค้าให้ถ้ายังว่าง) ทันทีตรงนี้ แล้วผูก id/docNumber ที่ได้กลับเข้า
+    // UI.editingDraft เท่านั้น (ไม่แตะ UI.editingDocId) — ทำให้การแก้ไข/auto-save ครั้งต่อๆ ไปทั้งหมด
+    // (รวมถึง beforeunload + showView guard เดิม, และปุ่ม "บันทึก" จริงที่ผู้ใช้กดเอง) เจอ
+    // UI.editingDraft.id ที่มีค่าอยู่แล้ว แล้ว update เอกสารเดียวกันนี้ต่อ ไม่สร้างซ้ำ — แต่
+    // UI.editingDocId ต้องปล่อยเป็น null ต่อไปจนกว่าผู้ใช้จะกด "บันทึก" เองจริงๆ เพราะมีจุดอื่นที่
+    // พึ่งค่านี้อยู่: หัวข้อหน้า ("สร้างเอกสารใหม่" vs "แก้ไขเอกสาร"), การเช็คสิทธิ์ create/edit ใน
+    // Editor.save() (wasEditingId), และทุกปุ่ม workflow (ส่งอนุมัติ/อนุมัติ/รับชำระ ฯลฯ) ที่บล็อกด้วย
+    // "if(!UI.editingDocId) ... 'กรุณาบันทึกเอกสารก่อน'" — ถ้าตั้ง editingDocId ทันทีตรงนี้ไปด้วย
+    // ผู้ใช้จะกดส่งอนุมัติเอกสารที่ยังไม่เคยรีวิว/กดบันทึกเองเลยได้ทันที ซึ่งไม่ใช่เจตนา
+    try{
+      const saved = Documents.autoSaveDraft(UI.editingDraft);
+      if(saved) UI.editingDraft = saved;
+    }catch(err){
+      console.error('immediate autoSaveDraft on newDocument failed', err);
+    }
     Editor.populateForm(UI.editingDraft);
     Render.showView('editor');
     // "กดไปละเป็นแบบรูปสองก่อน ละค่อยกดเข้าไปอีกที" — ไม่ว่าจะมาจากปุ่มบนการ์ดต้อนรับ
@@ -14360,7 +14381,13 @@ function wireEvents(){
       if(UI.currentView === 'editor') Editor.save();
     }
     if(e.key === 'Escape'){
-      document.querySelectorAll('.modal-backdrop.open').forEach(bd=> bd.classList.remove('open'));
+      // "อยากให้ก่อนจะออกจะฟั่งชั้นพวกนี้ ให้มีกดยืนยันตลอด" ตามด้วย "ไม่อยากให้ออกเลย ละข้อมูลที่
+      // พิมพ์มาหายหมด" — เดิมตรงนี้ปิดทุก modal ที่เปิดอยู่ทันทีไม่มีเงื่อนไข (bd.classList.remove
+      // ตรงๆ) ซึ่งข้าม closeModalBackdrop() ที่เช็ค data-warn-dirty/UI.modalDirty ไปเลย (ดูคอมเมนต์
+      // ตรง closeModalBackdrop ด้านบน) ผลคือปุ่ม X/ยกเลิก/คลิกพื้นหลังของ modal "เพิ่มลูกค้า/สินค้า/
+      // บัญชีธนาคาร" ถามยืนยันก่อนถูกต้องแล้ว แต่กด Esc ยังหลุดปิดทันทีไม่ถามเลย ข้อมูลที่กรอกค้างหาย
+      // ไปเงียบๆ — เปลี่ยนมาเรียก closeModalBackdrop() ทีละอันแทน ให้พฤติกรรมตรงกับทุกทางออกอื่น
+      document.querySelectorAll('.modal-backdrop.open').forEach(bd=> closeModalBackdrop(bd));
     }
   });
 }

@@ -3971,11 +3971,16 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
    ============================================================================ */
 const STORAGE_KEY = 'qis_db_v1';
 const SIDEBAR_GROUPS_KEY = 'qis_sidebar_groups'; // collapse/expand state per sidebar group (Render.initSidebarGroups)
-// Customers are the ONE part of the DB blob that's shared across every company
-// workspace instead of being per-company-scoped ("Customers ทุกบริษัทเห็นด้วยกันหมด") —
-// everything else (documents/products/banks/settings/counters) stays isolated per
-// company via Storage._key(companyId) as before. See Storage.loadSharedCustomers/
-// saveSharedCustomers/_migrateToSharedCustomers below.
+// "ไม่อยากให้ระบบใช้ฐานข้อมูลลูกค้า เดียวกัน เเยกใครเเยกมัน" + "ทั้ง 3 อันนี้ด้วย" (Customers/
+// Products/Bank Accounts) — customers used to be the ONE part of the DB blob shared
+// across every company workspace ("Customers ทุกบริษัทเห็นด้วยกันหมด"). That sharing is
+// what let one company's push silently delete another company's customers from
+// Supabase (Cloud.pushCustomers used to diff-delete against ALL remote rows, not just
+// this company's) — traced to the "หวังรวย" customer data disappearing. Reverted:
+// customers are now isolated per company exactly like documents/products/banks, via
+// Storage._key(companyId) as normal. SHARED_CUSTOMERS_KEY / Storage.loadSharedCustomers/
+// _migrateFromSharedCustomers are kept below ONLY so a browser that still has old
+// shared-key data doesn't lose it silently when it first loads under the new behavior.
 const SHARED_CUSTOMERS_KEY = 'qis_customers_shared_v1';
 
 /** Supabase Auth requires an email-shaped identifier — this app shows the person a
@@ -4092,9 +4097,9 @@ const Workspace = {
     if(!localStorage.getItem(Storage._key(fallback.id))){
       DB = Data.blankDB();
       DB.company.name = fallback.name;
-      // Customers are shared across companies — blankDB() would otherwise wipe
-      // them back to [] for this fresh workspace (see SHARED_CUSTOMERS_KEY).
-      DB.customers = Storage.loadSharedCustomers() || [];
+      // "ไม่อยากให้ระบบใช้ฐานข้อมูลลูกค้า เดียวกัน เเยกใครเเยกมัน" — customers used to be
+      // force-filled from the shared cross-company list here; a brand-new company now
+      // starts with its own empty customer list, same as documents/products/banks.
       Storage.saveLocalOnly();
     }
     return true;
@@ -4127,9 +4132,9 @@ const Workspace = {
       // as any real onboarding.
       DB = Data.blankDB();
       DB.company.name = target.name;
-      // Customers are shared across companies — blankDB() would otherwise wipe
-      // them back to [] for this fresh workspace (see SHARED_CUSTOMERS_KEY).
-      DB.customers = Storage.loadSharedCustomers() || [];
+      // "ไม่อยากให้ระบบใช้ฐานข้อมูลลูกค้า เดียวกัน เเยกใครเเยกมัน" — a brand-new company
+      // workspace starts with its own empty customer list now (was force-filled from
+      // the shared cross-company list before), same as documents/products/banks.
       Storage.saveLocalOnly();
     }
     Render.applySidebarBrand();
@@ -4314,40 +4319,31 @@ const Storage = {
     }
   },
 
-  /** Reads the shared (cross-company) customers list. Returns null only if the
-   *  shared key has never been written yet (used by Data.init() to tell "not
-   *  migrated yet" apart from "migrated but genuinely empty"). */
+  /** Legacy read of the old shared (cross-company) customers list — kept ONLY for
+   *  _migrateFromSharedCustomers() below, which runs once to fold this list back
+   *  into the currently-active company so nobody's already-entered customers
+   *  disappear the moment sharing is turned off. Not used anywhere else anymore
+   *  ("ไม่อยากให้ระบบใช้ฐานข้อมูลลูกค้า เดียวกัน เเยกใครเเยกมัน"). */
   loadSharedCustomers(){
     try{
       const raw = localStorage.getItem(SHARED_CUSTOMERS_KEY);
       return raw === null ? null : JSON.parse(raw);
     }catch(e){ console.error('Storage.loadSharedCustomers failed', e); return null; }
   },
-  saveSharedCustomers(customers){
-    try{ localStorage.setItem(SHARED_CUSTOMERS_KEY, JSON.stringify(customers||[])); }
-    catch(e){ console.error('Storage.saveSharedCustomers failed', e); }
-  },
-  /** One-time migration: before "Customers ทุกบริษัทเห็นด้วยกันหมด", each company's
-   *  customers lived isolated inside its own per-company blob (Storage._key(id)).
-   *  The first time this runs, scan every per-company blob already in this
-   *  browser's localStorage and merge their customers (dedup by id) into the new
-   *  shared key, so nobody's already-entered customers disappear the moment
-   *  Customers becomes one shared list. Idempotent — no-ops forever once the
-   *  shared key exists (even if it's legitimately empty). */
-  _migrateToSharedCustomers(){
+  /** One-time migration (reverse of the old _migrateToSharedCustomers below): if this
+   *  browser still has data under the old SHARED_CUSTOMERS_KEY and the CURRENT
+   *  company's own per-company blob has no customers of its own yet, copy the shared
+   *  list into this company once so its customers don't just vanish when the sharing
+   *  behavior is turned off. After that, every company keeps its own separate list
+   *  (matches documents/products/banks) — "ทั้ง 3 อันนี้ด้วย". Idempotent: only fires
+   *  while this company's customers array is still empty. */
+  _migrateFromSharedCustomers(){
     try{
-      if(localStorage.getItem(SHARED_CUSTOMERS_KEY) !== null) return;
-      const merged = {};
-      for(let i=0;i<localStorage.length;i++){
-        const key = localStorage.key(i);
-        if(!key || key.indexOf(STORAGE_KEY+'__') !== 0) continue;
-        try{
-          const parsed = JSON.parse(localStorage.getItem(key));
-          (parsed.customers||[]).forEach(cust=>{ if(cust && cust.id) merged[cust.id] = cust; });
-        }catch(e){ /* skip an unreadable blob, keep scanning the rest */ }
-      }
-      localStorage.setItem(SHARED_CUSTOMERS_KEY, JSON.stringify(Object.values(merged)));
-    }catch(e){ console.error('Storage._migrateToSharedCustomers failed', e); }
+      const shared = Storage.loadSharedCustomers();
+      if(!shared || !shared.length) return;
+      if(DB.customers && DB.customers.length) return;
+      DB.customers = shared;
+    }catch(e){ console.error('Storage._migrateFromSharedCustomers failed', e); }
   },
   /** Writes to localStorage only, without touching Cloud Sync. Used internally
    *  right after pulling data FROM Supabase (so we don't immediately schedule a
@@ -4357,10 +4353,9 @@ const Storage = {
     try{
       const payload = Cloud.isEnabled() ? Storage._localCachePayload() : DB;
       localStorage.setItem(Storage._key(), JSON.stringify(payload));
-      // Customers are shared across every company workspace — mirror the current
-      // in-memory list to the shared key on every save, regardless of which
-      // company is active (see SHARED_CUSTOMERS_KEY above).
-      Storage.saveSharedCustomers(DB.customers);
+      // "ไม่อยากให้ระบบใช้ฐานข้อมูลลูกค้า เดียวกัน เเยกใครเเยกมัน" — customers now live only
+      // inside this company's own blob (payload above already includes DB.customers),
+      // no more mirroring to a cross-company shared key.
     }catch(e){
       console.error('Storage.save failed', e);
       Utils.toast('บันทึกข้อมูลไม่สำเร็จ (พื้นที่จัดเก็บอาจเต็ม)', 'err');
@@ -4452,13 +4447,12 @@ const Storage = {
   },
   clearAll(){
     localStorage.removeItem(STORAGE_KEY);
-    // Preserve customers across the wipe — they're shared across every company
-    // workspace now, so "Clear All Data" for THIS company must not also wipe out
-    // every other company's shared customer list (see SHARED_CUSTOMERS_KEY).
-    const keepCustomers = Storage.loadSharedCustomers() || [];
+    // "ไม่อยากให้ระบบใช้ฐานข้อมูลลูกค้า เดียวกัน เเยกใครเเยกมัน" — customers are per-company
+    // now (not a shared cross-company list), so "Clear All Data" wipes THIS company's
+    // customers too, same as its documents/products/banks — it no longer needs to
+    // preserve a shared customer list that doesn't exist anymore.
     DB = Data.blankDB();
     Data.seedIfEmpty();
-    DB.customers = keepCustomers;
     Storage.save();
     Utils.toast('ล้างข้อมูลทั้งหมดเรียบร้อย', 'ok');
   }
@@ -4687,11 +4681,12 @@ const Cloud = {
       const { error } = await Cloud.client.from('customers').upsert(rows, {onConflict:'id'});
       if(error) throw error;
     }
-    // Customers are shared across every company workspace now ("Customers
-    // ทุกบริษัทเห็นด้วยกันหมด") — the diff is against ALL remote customers, not
-    // scoped by company_id, since DB.customers itself is the same shared list
-    // no matter which company is currently active (see SHARED_CUSTOMERS_KEY).
-    const { data: remote, error: selErr } = await Cloud.client.from('customers').select('id');
+    // "ไม่อยากให้ระบบใช้ฐานข้อมูลลูกค้า เดียวกัน เเยกใครเเยกมัน" — this used to diff against
+    // ALL remote customers regardless of company, which meant ANY company's push could
+    // delete another company's customers out of Supabase (this is what happened to
+    // "หวังรวย"'s customer data). Scoped to company_id now, same pattern as
+    // pushDocuments — a push can only ever delete THIS company's own rows.
+    const { data: remote, error: selErr } = await Cloud.client.from('customers').select('id').eq('company_id', companyId);
     if(selErr) throw selErr;
     const localIds = new Set((DB.customers||[]).map(c=>c.id));
     const toDelete = (remote||[]).map(r=>r.id).filter(id=> !localIds.has(id));
@@ -4771,10 +4766,12 @@ const Cloud = {
   async pullAll(){
     if(!Cloud.isEnabled()) return null;
     const companyId = Workspace.getCurrentId();
-    // Customers are shared across every company workspace — pulled WITHOUT a
-    // company_id filter, unlike documents/document_items which stay per-company.
+    // "ไม่อยากให้ระบบใช้ฐานข้อมูลลูกค้า เดียวกัน เเยกใครเเยกมัน" — customers now pull
+    // scoped to THIS company only, same as documents/document_items (was pulled
+    // WITHOUT a company_id filter before, which is what made the cross-company
+    // sharing/deletion bug possible).
     const [custRes, docRes, itemRes] = await Promise.all([
-      Cloud.client.from('customers').select('*'),
+      Cloud.client.from('customers').select('*').eq('company_id', companyId),
       Cloud.client.from('documents').select('*').eq('company_id', companyId),
       Cloud.client.from('document_items').select('*').eq('company_id', companyId).order('seq', {ascending:true})
     ]);
@@ -6209,13 +6206,12 @@ const Data = {
       if(!d.workflow) d.workflow = Documents.blankWorkflow();
       if(!d.payments) d.payments = [];
     });
-    // Customers are shared across every company workspace, not per-company like the
-    // rest of DB — always resolve them from the shared key (migrating old
-    // per-company data into it the first time), overriding whatever came from this
-    // company's own blob above. See SHARED_CUSTOMERS_KEY / Storage.loadSharedCustomers.
-    Storage._migrateToSharedCustomers();
-    const sharedCustomers = Storage.loadSharedCustomers();
-    DB.customers = sharedCustomers !== null ? sharedCustomers : (DB.customers || []);
+    // "ไม่อยากให้ระบบใช้ฐานข้อมูลลูกค้า เดียวกัน เเยกใครเเยกมัน" — customers are per-company
+    // now, loaded normally as part of this company's own blob above (no more shared
+    // cross-company override). One-time: if this browser still has old shared-key
+    // data and this company's own customers are empty, fold it in once so nothing
+    // already entered just disappears (see Storage._migrateFromSharedCustomers).
+    Storage._migrateFromSharedCustomers();
     Data.seedIfEmpty();
     Documents.autoFlagOverdue();
     Storage.saveLocalOnly();
@@ -10366,8 +10362,9 @@ const Modals = {
   },
 
   /** "แยกอนุมัติลูกค้า" — เหมือน openUserCompanies() ด้านบนเป๊ะๆ แค่ผูกกับ
-   *  allowed_customer_ids/DB.customers (ลูกค้าเป็นรายการที่ใช้ร่วมกันทุกบริษัท ไม่ได้แยกตาม
-   *  Workspace เหมือนบริษัท — ดู SHARED_CUSTOMERS_KEY) แทน — checkbox "ไม่จำกัด" ด้านบน
+   *  allowed_customer_ids/DB.customers แทน — รายชื่อลูกค้าที่แสดงในนี้คือของบริษัทที่กำลัง
+   *  เปิดอยู่ ณ ตอนนั้น (customers แยกต่อบริษัทแล้ว ไม่ได้ใช้ร่วมกันทุกบริษัทเหมือนก่อนหน้านี้ —
+   *  "ไม่อยากให้ระบบใช้ฐานข้อมูลลูกค้า เดียวกัน เเยกใครเเยกมัน") — checkbox "ไม่จำกัด" ด้านบน
    *  checklist สะท้อนค่า NULL/ไม่เคยตั้งค่าเลย (unrestricted, ค่า default ของทุก user จนกว่า
    *  Admin จะมาจำกัดจริง — ดู Auth.canApproveCustomer). */
   openUserCustomers(userId){

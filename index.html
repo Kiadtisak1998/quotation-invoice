@@ -6017,7 +6017,12 @@ ${sheetsXml}
     return words.join(' ').replace(/\s+/g,' ').trim();
   },
 
-  /** ประกอบข้อความเต็ม "Amount in Words" ภาษาอังกฤษ พร้อมชื่อสกุลเงินและเศษสตางค์/เซนต์ */
+  /** ประกอบข้อความเต็ม "Amount in Words" ภาษาอังกฤษ พร้อมชื่อสกุลเงินและเศษสตางค์/เซนต์
+   *  "เขียนให้ตรงกับจำนวน" — ตัวเลขที่แปลงเป็นคำ (เช่น "Five Thousand") ถูกต้องตามจำนวนเงินอยู่
+   *  แล้ว แต่ก่อนหน้านี้ตัวอักษรตัวแรกของแต่ละคำเป็นตัวใหญ่ตัวเดียว (Title Case) ในขณะที่ส่วนอื่น
+   *  ของประโยค (ชื่อสกุลเงิน/AND/ONLY) เป็นตัวพิมพ์ใหญ่ล้วนอยู่แล้ว ทำให้ประโยคดูไม่ตรงกัน (ดู
+   *  ภาพหน้าจอ "US DOLLARS Five Thousand AND 00/100 ONLY") — .toUpperCase() ให้ทั้งประโยคเป็น
+   *  ตัวพิมพ์ใหญ่ล้วนตามธรรมเนียม invoice สากล ("US DOLLARS FIVE THOUSAND AND 00/100 ONLY") */
   amountInWordsEn(amount, currencyCode){
     const meta = CURRENCIES[currencyCode] || CURRENCIES.THB;
     const rounded = Utils.round2(Math.abs(amount));
@@ -6025,7 +6030,7 @@ ${sheetsXml}
     const cents = Math.round((rounded - intPart) * 100);
     const centsStr = String(cents).padStart(2,'0');
     const negPrefix = amount < 0 ? 'MINUS ' : '';
-    return `${negPrefix}${meta.nameEn} ${Utils.numberToEnglishWords(intPart)} AND ${centsStr}/100 ONLY`;
+    return `${negPrefix}${meta.nameEn} ${Utils.numberToEnglishWords(intPart).toUpperCase()} AND ${centsStr}/100 ONLY`;
   }
 };
 </script>
@@ -9033,7 +9038,10 @@ const DocPreview = {
           ${company.website ? `<div>${lang==='en'?'Website':'เว็บไซต์'} : ${Utils.escapeHtml(company.website)}</div>` : ''}
         </div>
       </div>
-      <div class="doc-title-box">${titles.th}/${titles.en}</div>
+      <!-- "ตรงปริ้น Eng ตรงหัวเอกสารใช้ Quotation เเละ Invoice ไม่มีภาษาไทยเลย" — หัวข้อ
+           ชื่อเอกสารต้องตามภาษาที่กดพิมพ์ล้วนๆ (ไม่ใช่โชว์คู่ th/en ตลอดแบบเดิม): พิมพ์อังกฤษ
+           เห็นแค่ "Quotation"/"Invoice", พิมพ์ไทยเห็นแค่ "ใบเสนอราคา"/"ใบแจ้งหนี้" -->
+      <div class="doc-title-box">${lang === 'en' ? titles.en : titles.th}</div>
     `;
 
     // ---- info table (customer + document meta) ----

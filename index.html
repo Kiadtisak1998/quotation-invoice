@@ -7148,8 +7148,14 @@ const Render = {
     if(!el) return;
     const docs = (DB.documents||[]).filter(d=> d.status !== 'Cancelled');
     const scopeQt = (d)=> d.type==='QT' || Auth.isAdmin();
-    const pendingAuth = docs.filter(d=> d.status === 'PendingApproval' && scopeQt(d)).length;
-    const pendingAcct = docs.filter(d=> d.status === 'Approved' && d.workflow && d.workflow.authApproved && scopeQt(d)).length;
+    // "อยากให้ ถ้ามีรายการรออนุมัติ ขึ้นตัวเลขว่ามีกี่รายการที่รออยู่" — ตัวเลขนี้มีอยู่แล้ว
+    // แต่ตอนเพิ่มสิทธิ์อนุมัติแบบจำกัดตามลูกค้า (allowed_customer_ids, ดู Render.approvalsView)
+    // ลืมผูก scopeCustomer เข้ามาด้วย ทำให้เลขนี้เพี้ยนจากของจริงในหน้า "รายการรออนุมัติ" —
+    // เช่น ผู้อนุมัติที่ถูกจำกัดสิทธิ์ไว้แค่บางลูกค้า จะเห็นเลขสูงเกินจริง เพราะนับรวมเอกสาร
+    // ของลูกค้าที่ตัวเองอนุมัติไม่ได้ด้วย
+    const scopeCustomer = (d)=> Auth.canApproveCustomer(d.customerId);
+    const pendingAuth = docs.filter(d=> d.status === 'PendingApproval' && scopeQt(d) && scopeCustomer(d)).length;
+    const pendingAcct = docs.filter(d=> d.status === 'Approved' && d.workflow && d.workflow.authApproved && scopeQt(d) && scopeCustomer(d)).length;
     let count = 0;
     if(Auth.isAdmin()) count = pendingAuth + pendingAcct;
     else if(Auth.role() === 'authorized') count = pendingAuth;

@@ -1997,13 +1997,9 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
 
       <!-- ===================== VIEW: DASHBOARD ===================== -->
       <section class="view" id="view-dashboard">
-        <div class="card" id="firstrun-banner" style="display:none;border:1.5px solid var(--blue-accent);background:var(--blue-accent-soft);text-align:center;padding:32px 20px;">
-          <div style="font-size:34px;margin-bottom:8px;">👋</div>
-          <div style="font-size:16px;font-weight:700;color:var(--gray-900);margin-bottom:6px;">ยินดีต้อนรับสู่ระบบเอกสารบริษัท</div>
-          <div style="font-size:13px;color:var(--gray-700);margin-bottom:16px;">เริ่มต้นใช้งานโดยสร้างใบเสนอราคาหรือใบแจ้งหนี้ฉบับแรกของคุณ</div>
-          <button class="btn btn-primary" onclick="Editor.newDocument('QT')">＋ สร้างเอกสารแรกของคุณ</button>
-        </div>
-
+        <!-- "หน้า Dashboard เอาอันนี้ออก" — ลบการ์ดต้อนรับ first-run ทิ้ง (เดิมคือ
+             #firstrun-banner) เพราะตอนนี้มีการ์ดต้อนรับแบบเดียวกันอยู่ที่หน้า "สร้างใบเสนอราคา"
+             อยู่แล้ว (#editor-intro) ไม่จำเป็นต้องซ้ำกันสองที่ -->
         <div class="card" id="action-banner" style="display:none;border:1.5px solid #ffdb9e;background:#fffaf0;">
           <div class="card-title">📋 รายการที่ต้องดำเนินการ</div>
           <div id="action-banner-list"></div>
@@ -2154,6 +2150,21 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
 
       <!-- ===================== VIEW: DOCUMENT EDITOR ===================== -->
       <section class="view" id="view-editor">
+        <!-- "อยากให้ฟั่งชัน สร้างใบเสอนรราคา กดไปละเป็นแบบรูปสองก่อน ละค่อยกดเข้าไปอีกที" —
+             คลิกเมนู "สร้างใบเสนอราคา" ในไซด์บาร์ ตอนนี้จะโชว์การ์ดต้อนรับนี้ก่อน (เหมือนหน้า
+             Dashboard ตอนยังไม่มีเอกสารเลย — ดู #firstrun-banner) แทนที่จะพากระโดดเข้าฟอร์ม
+             กรอกเอกสารตรงๆ ทันที — กดปุ่มด้านล่างอีกทีถึงจะเปิดฟอร์มจริง (Editor.newDocument)
+             ส่วนทางเข้าอื่นๆ ที่ไม่ได้มาจากเมนูนี้ (แก้ไข/ทำสำเนา/เปิดจากรายการอนุมัติ ฯลฯ ที่
+             เรียก Editor.open()/Editor.newDocument() ตรงๆ) ยังพาเข้าฟอร์มทันทีเหมือนเดิมทุก
+             ที่ — ดู Editor.showCreateIntro() ที่ผูกกับเมนูนี้โดยเฉพาะ ใน wireEvents(). -->
+        <div class="card" id="editor-intro" style="display:none;border:1.5px solid var(--blue-accent);background:var(--blue-accent-soft);text-align:center;padding:32px 20px;">
+          <div style="font-size:34px;margin-bottom:8px;">👋</div>
+          <div style="font-size:16px;font-weight:700;color:var(--gray-900);margin-bottom:6px;">สร้างใบเสนอราคาใหม่</div>
+          <div style="font-size:13px;color:var(--gray-700);margin-bottom:16px;">กดปุ่มด้านล่างเพื่อเปิดฟอร์มกรอกข้อมูลใบเสนอราคาฉบับใหม่</div>
+          <button class="btn btn-primary" onclick="Editor.newDocument('QT')">＋ สร้างใบเสนอราคา</button>
+        </div>
+
+        <div id="editor-form-wrap">
         <div class="toolbar no-print">
           <div class="field" style="margin:0;min-width:170px;">
             <label>ประเภทเอกสาร</label>
@@ -2315,6 +2326,7 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
           </div>
         </div>
         </div><!-- /editor-layout -->
+        </div><!-- /editor-form-wrap -->
       </section>
 
       <!-- ===================== VIEW: DOCUMENTS LIST ===================== -->
@@ -7918,8 +7930,8 @@ const Render = {
   /* ---------------------------- DASHBOARD ---------------------------- */
   dashboard(){
     Documents.autoFlagOverdue();
-    const firstRunEl = document.getElementById('firstrun-banner');
-    if(firstRunEl) firstRunEl.style.display = (DB.documents.length === 0) ? '' : 'none';
+    // "หน้า Dashboard เอาอันนี้ออก" — เดิมมีการ์ดต้อนรับ first-run (#firstrun-banner) ตรงนี้
+    // ลบออกแล้ว (ซ้ำกับการ์ดต้อนรับที่หน้า "สร้างใบเสนอราคา" — ดู #editor-intro)
     Render.actionBanner();
     // "อยากให้สามารถเลือกดูแต่ละ บ.ได้ด้วย" — dropdown บนสุดของ Dashboard ให้สลับบริษัทได้ตรงนี้
     // เลย (ใช้ Workspace.allowedList()/switchTo() ชุดเดียวกับแถบข้าง #company-switcher-select) —
@@ -9055,6 +9067,13 @@ const Editor = {
     UI.editingDraft = Documents.blankDocument(type||'QT');
     Editor.populateForm(UI.editingDraft);
     Render.showView('editor');
+    // "กดไปละเป็นแบบรูปสองก่อน ละค่อยกดเข้าไปอีกที" — ไม่ว่าจะมาจากปุ่มบนการ์ดต้อนรับ
+    // (#editor-intro), ปุ่ม "+ สร้างเอกสารแรกของคุณ" บน Dashboard, หรือที่อื่นๆ ที่เรียก
+    // ฟังก์ชันนี้ตรงๆ — ต้องโชว์ฟอร์มจริงเสมอ ไม่ใช่การ์ดต้อนรับ
+    const intro = document.getElementById('editor-intro');
+    const formWrap = document.getElementById('editor-form-wrap');
+    if(intro) intro.style.display = 'none';
+    if(formWrap) formWrap.style.display = '';
   },
 
   open(id){
@@ -9064,6 +9083,27 @@ const Editor = {
     UI.editingDraft = JSON.parse(JSON.stringify(doc));
     Editor.populateForm(UI.editingDraft);
     Render.showView('editor');
+    // เปิดเอกสารที่มีอยู่แล้วต้องเห็นฟอร์มทันที ไม่ใช่การ์ดต้อนรับ (เผื่อกรณีก่อนหน้านี้ค้าง
+    // อยู่ที่การ์ดต้อนรับแล้วมีที่อื่นเรียก Editor.open() ข้ามมา เช่น จากรายการอนุมัติ)
+    const intro = document.getElementById('editor-intro');
+    const formWrap = document.getElementById('editor-form-wrap');
+    if(intro) intro.style.display = 'none';
+    if(formWrap) formWrap.style.display = '';
+  },
+
+  /** "อยากให้ฟั่งชัน สร้างใบเสอนรราคา กดไปละเป็นแบบรูปสองก่อน ละค่อยกดเข้าไปอีกที" — ผูกกับ
+   *  เมนูไซด์บาร์ "สร้างใบเสนอราคา" โดยเฉพาะ (ดู wireEvents): แทนที่จะพากระโดดเข้าฟอร์ม
+   *  กรอกเอกสารทันทีเหมือนเดิม (Editor.newDocument('QT')) ให้โชว์การ์ดต้อนรับ #editor-intro
+   *  ก่อน แล้วให้ผู้ใช้กดปุ่มบนการ์ดอีกทีถึงจะเปิดฟอร์มจริง — เคลียร์ editingDocId ทิ้งก่อน
+   *  เผื่อก่อนหน้านี้ค้างเปิดเอกสารเก่าอยู่ ไม่งั้น Render.showView() จะตั้ง title เป็น
+   *  "แก้ไขเอกสาร" ผิดๆ ทั้งที่นี่คือทางเข้าสำหรับ "สร้างใหม่" เท่านั้น */
+  showCreateIntro(){
+    UI.editingDocId = null;
+    Render.showView('editor');
+    const intro = document.getElementById('editor-intro');
+    const formWrap = document.getElementById('editor-form-wrap');
+    if(intro) intro.style.display = '';
+    if(formWrap) formWrap.style.display = 'none';
   },
 
   populateForm(d){
@@ -13375,7 +13415,9 @@ function wireEvents(){
     const activate = ()=>{
       const view = item.dataset.view;
       if(view === 'editor'){
-        Editor.newDocument('QT');
+        // "กดไปละเป็นแบบรูปสองก่อน ละค่อยกดเข้าไปอีกที" — เมนูนี้โดยเฉพาะโชว์การ์ดต้อนรับ
+        // ก่อน (ดู Editor.showCreateIntro) แทนที่จะพาเข้าฟอร์มตรงๆ เหมือนเดิม
+        Editor.showCreateIntro();
       }else{
         Render.showView(view);
       }

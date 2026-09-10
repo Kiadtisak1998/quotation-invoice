@@ -739,6 +739,21 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 #topbar .topbar-actions{display:flex;gap:8px;align-items:center;}
 #menu-toggle{display:none;background:none;border:none;font-size:20px;cursor:pointer;color:var(--navy);}
 
+/* Global search (topbar) — "อยากปรับให้ น่าสนใจ น่าใช้เว็บ" — ดู GlobalSearch module +
+   HTML comment ที่ #global-search-wrap สำหรับที่มา */
+.global-search-wrap{position:relative;width:230px;}
+.global-search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:12.5px;opacity:.55;pointer-events:none;}
+.global-search-input{width:100%;padding:7px 10px 7px 30px;border-radius:20px;border:1px solid var(--gray-300);background:rgba(255,255,255,0.06);color:inherit;font-size:13px;}
+.global-search-input:focus{outline:none;border-color:var(--blue-accent);box-shadow:0 0 0 3px var(--blue-accent-soft);}
+.global-search-results{position:absolute;top:calc(100% + 8px);left:0;width:320px;max-height:360px;overflow-y:auto;background:var(--surface-1,#0f1a2e);border:1px solid var(--gray-300);border-radius:12px;box-shadow:var(--shadow-md);z-index:60;}
+.gsr-group-label{padding:8px 12px 4px;font-size:11px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.03em;}
+.gsr-item{display:flex;flex-direction:column;gap:2px;padding:8px 12px;cursor:pointer;border-top:1px solid var(--gray-200);}
+.gsr-item:first-child{border-top:none;}
+.gsr-item:hover{background:var(--blue-accent-soft);}
+.gsr-item .gsr-title{font-weight:600;font-size:13px;}
+.gsr-item .gsr-sub{font-size:11.5px;color:var(--gray-500);}
+.gsr-empty{padding:14px 12px;text-align:center;color:var(--gray-500);font-size:12.5px;}
+
 /* Notifications bell + dropdown (topbar-actions) — see the Notifications JS
    module for the derived, no-new-schema event feed this renders. */
 .notif-wrap{position:relative;}
@@ -1540,6 +1555,9 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
   #sidebar.open{transform:translateX(0);}
   #menu-toggle{display:block;}
   #main-content{padding:14px;}
+  /* ช่องค้นหากลางที่ topbar กว้าง 230px จะแน่นเกินไปกับปุ่มอื่นๆ บนจอมือถือ — ซ่อนไว้ก่อน
+     (ค้นหาเฉพาะเจาะจงรายหน้ายังใช้ได้ปกติ) ดู .global-search-wrap ด้านบน */
+  .global-search-wrap{display:none;}
   .card{padding:16px;border-radius:10px;}
   .kpi-grid{grid-template-columns:1fr 1fr;}
   .doc-page{width:100%;min-height:auto;padding:5mm;font-size:11px;}
@@ -1925,6 +1943,15 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
         <div class="view-title" id="view-title-text">Dashboard</div>
       </div>
       <div class="topbar-actions">
+        <!-- "อยากปรับให้ น่าสนใจ น่าใช้เว็บ" — ช่องค้นหากลาง ค้นข้ามหน้าได้ทั้งเลขที่เอกสาร
+             (QT/INV) และชื่อลูกค้า จากทุกหน้าในระบบ ไม่ต้องเดาว่าต้องไปหน้าไหนก่อนถึงจะค้นเจอ
+             (ดู GlobalSearch module) — ซ่อนบนจอมือถือ (ดู @media max-width:900px) เพื่อไม่ให้
+             topbar แน่นเกินไปกับปุ่มอื่นๆ ที่มีอยู่แล้ว -->
+        <div class="global-search-wrap" id="global-search-wrap">
+          <span class="global-search-icon" aria-hidden="true">🔍</span>
+          <input type="text" id="global-search-input" class="global-search-input" placeholder="ค้นหาเลขที่เอกสาร/ชื่อลูกค้า..." autocomplete="off" aria-label="ค้นหาเอกสารหรือลูกค้าจากทุกหน้า">
+          <div id="global-search-results" class="global-search-results" style="display:none;"></div>
+        </div>
         <div class="notif-wrap">
           <button class="btn btn-sm notif-bell-btn" id="btn-notif-bell" title="การแจ้งเตือน" aria-haspopup="true" aria-expanded="false">🔔<span class="notif-badge" id="notif-badge" style="display:none;"></span></button>
           <div id="notif-panel" class="notif-panel">
@@ -2222,6 +2249,23 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
               <div class="field"><label>เงื่อนไขการชำระเงิน</label><input type="text" id="doc-terms"></div>
               <div class="field"><label>Project</label><input type="text" id="doc-project"></div>
               <div class="field"><label>Game</label><input type="text" id="doc-refno"></div>
+              <!-- "อยากเพิ่ม ฟั่งชั่น ภาษาอังกฤษเพราะมีวางบิล ตปท. เเละ สกุลเงิน" ตามด้วย "ไม่อยาก
+                   ออก QT เเละ INV เป็น Eng" — เก็บเฉพาะตัวเลือกสกุลเงินไว้ (ต่อเอกสาร) ตัวเลือก
+                   ภาษาที่พิมพ์เอกสารถูกเอาออกแล้วตามที่ผู้ใช้ยืนยัน เอกสารยังเป็นไทยเสมอเหมือนเดิม
+                   ดู CURRENCIES + DocPreview.render() -->
+              <div class="field"><label>สกุลเงิน</label>
+                <select id="doc-currency">
+                  <option value="THB">THB — บาทไทย (฿)</option>
+                  <option value="USD">USD — ดอลลาร์สหรัฐ ($)</option>
+                  <option value="EUR">EUR — ยูโร (€)</option>
+                  <option value="GBP">GBP — ปอนด์สเตอร์ลิง (£)</option>
+                  <option value="SGD">SGD — ดอลลาร์สิงคโปร์ (S$)</option>
+                  <option value="CNY">CNY — หยวนจีน (¥)</option>
+                  <option value="JPY">JPY — เยนญี่ปุ่น (¥)</option>
+                  <option value="HKD">HKD — ดอลลาร์ฮ่องกง (HK$)</option>
+                  <option value="AUD">AUD — ดอลลาร์ออสเตรเลีย (A$)</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -2320,10 +2364,15 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
           <div class="card">
             <div class="card-title">ขั้นตอนอนุมัติเอกสาร <span class="muted" style="font-weight:400;font-size:11.5px;">(ต้องบันทึกเอกสารก่อนจึงจะกดอนุมัติได้)</span></div>
             <div id="workflow-panel"></div>
+            <!-- "คือ อยากให้มี 2 vision ทั้ง THA เเละ Eng" / "คือต้องออกเอกสารให้ต่างชาติ" —
+                 พิมพ์/PDF ได้ทั้ง 2 ภาษาแยกปุ่มกัน โดยไม่ต้องเปลี่ยนข้อมูลในเอกสาร (ดู
+                 ExportMod.print/saveDocPdfToComputer ที่รับพารามิเตอร์ lang) -->
             <div class="toolbar no-print" style="margin-top:14px;flex-direction:column;align-items:stretch;">
               <button class="btn" id="btn-save-doc">💾 บันทึก</button>
-              <button class="btn btn-accent" id="btn-print-doc">🖨 Print / Export PDF</button>
-              <button class="btn" id="btn-save-pdf-computer">⬇ Save as PDF ลงเครื่อง</button>
+              <button class="btn btn-accent" id="btn-print-doc">🖨 พิมพ์ / Export PDF (ไทย)</button>
+              <button class="btn" id="btn-save-pdf-computer">⬇ Save as PDF ลงเครื่อง (ไทย)</button>
+              <button class="btn btn-accent" id="btn-print-doc-en">🖨 Print / Export PDF (English)</button>
+              <button class="btn" id="btn-save-pdf-computer-en">⬇ Save as PDF (English)</button>
             </div>
           </div>
         </div>
@@ -4202,6 +4251,11 @@ const UI = {
   _activityLogsCache: [],    // Activity Logs page: full (unfiltered, role-scoped) list from the last render
   _activityLogsFiltered: [], // Activity Logs page: what's currently visible after search/filter — what Export Excel exports
   _adminProfilesCache: [],   // Admin > Users page: last-fetched profile list, so Modals.openResetPassword(id) can look one up without re-fetching
+  // "อยากปรับให้ น่าสนใจ น่าใช้เว็บ" — เตือนก่อนปิด/รีเฟรชแท็บถ้ายังมีข้อมูลที่กรอกในฟอร์ม
+  // สร้าง/แก้ไขเอกสารแล้วยังไม่ได้กด "บันทึก" — กันงานหายเงียบๆ ถ้าเผลอปิดแท็บ ดู
+  // beforeunload listener ท้าย wireEvents() + จุดตั้ง/เคลียร์ flag นี้ใน Editor.populateForm()
+  // (เริ่มฟอร์มใหม่ = ไม่ dirty) และ Editor.save() (บันทึกสำเร็จ = ไม่ dirty อีกต่อไป)
+  editorDirty: false,
 };
 
 /* ============================================================================
@@ -5498,6 +5552,70 @@ const QuickCalc = {
   }
 };
 
+/** "อยากปรับให้ น่าสนใจ น่าใช้เว็บ" — ช่องค้นหากลางที่ topbar (#global-search-wrap) ค้น
+ *  ข้ามหน้าได้ทั้งเลขที่เอกสาร (QT/INV) และชื่อลูกค้า จากทุกหน้าในระบบ ไม่ต้องเดาว่าต้องไป
+ *  หน้าไหนก่อนถึงจะค้นเจอ — จำกัดแค่ 2 อย่างที่ค้นบ่อยสุดก่อน (ไม่รวม Products/Banks) เพื่อไม่
+ *  ให้ผลลัพธ์รกเกินไป เลือกผลลัพธ์เอกสารแล้วพาเข้า Editor ตรงๆ, เลือกลูกค้าแล้วพาไปหน้า
+ *  Customers + เปิด modal แก้ไขให้เลย (Modals.editCustomer) */
+const GlobalSearch = {
+  MAX_PER_GROUP: 5,
+
+  results(query){
+    const q = (query || '').trim().toLowerCase();
+    if(!q) return { docs: [], customers: [] };
+    const docs = (DB.documents || [])
+      .filter(d => d.status !== 'Cancelled')
+      .filter(d => (d.docNumber || '').toLowerCase().includes(q) || ((d.customer && d.customer.name) || '').toLowerCase().includes(q))
+      .slice(0, GlobalSearch.MAX_PER_GROUP);
+    const customers = (DB.customers || [])
+      .filter(c => (c.name || '').toLowerCase().includes(q))
+      .slice(0, GlobalSearch.MAX_PER_GROUP);
+    return { docs, customers };
+  },
+
+  render(query){
+    const panel = document.getElementById('global-search-results');
+    if(!panel) return;
+    if(!(query || '').trim()){ panel.style.display = 'none'; panel.innerHTML = ''; return; }
+    const { docs, customers } = GlobalSearch.results(query);
+    if(!docs.length && !customers.length){
+      panel.innerHTML = `<div class="gsr-empty">ไม่พบผลลัพธ์สำหรับ "${Utils.escapeHtml(query)}"</div>`;
+      panel.style.display = '';
+      return;
+    }
+    let html = '';
+    if(docs.length){
+      html += `<div class="gsr-group-label">เอกสาร</div>` + docs.map(d => `
+        <div class="gsr-item" data-kind="doc" data-id="${d.id}">
+          <span class="gsr-title">${Utils.escapeHtml(d.docNumber || '')} · ${d.type === 'INV' ? 'ใบแจ้งหนี้' : 'ใบเสนอราคา'}</span>
+          <span class="gsr-sub">${Utils.escapeHtml((d.customer && d.customer.name) || '(ไม่ระบุลูกค้า)')}</span>
+        </div>`).join('');
+    }
+    if(customers.length){
+      html += `<div class="gsr-group-label">ลูกค้า</div>` + customers.map(c => `
+        <div class="gsr-item" data-kind="customer" data-id="${c.id}">
+          <span class="gsr-title">${Utils.escapeHtml(c.name || '')}</span>
+          <span class="gsr-sub">${Utils.escapeHtml(c.contact || c.phone || '')}</span>
+        </div>`).join('');
+    }
+    panel.innerHTML = html;
+    panel.style.display = '';
+  },
+
+  select(kind, id){
+    const input = document.getElementById('global-search-input');
+    const panel = document.getElementById('global-search-results');
+    if(input) input.value = '';
+    if(panel){ panel.style.display = 'none'; panel.innerHTML = ''; }
+    if(kind === 'doc'){
+      Editor.open(id);
+    }else if(kind === 'customer'){
+      Render.showView('customers');
+      Modals.editCustomer(id);
+    }
+  }
+};
+
 /* ============================================================================
    3. UTILITIES
    ============================================================================ */
@@ -5563,6 +5681,17 @@ const Utils = {
 
   formatCurrency(n){
     return Utils.currencySymbol() + Utils.formatMoney(n);
+  },
+
+  /** สกุลเงิน "ต่อเอกสาร" (แยกจาก currencySymbol()/formatCurrency() ด้านบน ซึ่งเป็น global
+   *  setting สำหรับ Dashboard/Reports เท่านั้น) — ใช้กับ doc.currency บน QT/INV/ใบเสร็จ
+   *  ดู CURRENCIES ที่ประกาศไว้ในส่วน RENDER MODULE ด้านล่าง */
+  docCurrencySymbol(code){
+    return (CURRENCIES[code] || CURRENCIES.THB).symbol;
+  },
+
+  formatMoneyCur(n, code){
+    return Utils.docCurrencySymbol(code) + Utils.formatMoney(n);
   },
 
   /** format a Date or 'YYYY-MM-DD' string to 'DD/MM/YYYY' (Gregorian, matches PDF sample) */
@@ -5850,6 +5979,53 @@ ${sheetsXml}
     text += convertInteger(bahtStr) + 'บาท';
     text += (satang === 0) ? 'ถ้วน' : (convertInteger(String(satang)) + 'สตางค์');
     return text;
+  },
+
+  /** ---- English amount-in-words ----
+   *  "คือ อยากให้มี 2 vision ทั้ง THA เเละ Eng" / "คือต้องออกเอกสารให้ต่างชาติ" / "เป็นสกุลเงิน
+   *  ต่างๆ" — เอกสารต้องออกได้ทั้ง 2 ภาษาโดยไม่ต้องเปลี่ยนข้อมูลในตัวเอกสาร (ดู DocPreview.render()/
+   *  renderReceipt() ที่รับพารามิเตอร์ lang แยกจาก doc.currency) ฟังก์ชันนี้แยกจาก thaiBahtText()
+   *  ด้านบนโดยสิ้นเชิงเพราะ thaiBahtText() ฝัง "บาท"/"สตางค์" ตายตัว — ฟังก์ชันนี้รับชื่อสกุลเงิน
+   *  จาก CURRENCIES[code].nameEn แทน จึงใช้ได้กับทุกสกุลเงินที่เลือกต่อเอกสาร รวมถึง THB ที่พิมพ์
+   *  เป็นภาษาอังกฤษ. รูปแบบผลลัพธ์ตามธรรมเนียม invoice สากล เช่น
+   *  "US DOLLARS TWO THOUSAND FIVE HUNDRED AND 50/100 ONLY" */
+  numberToEnglishWords(number){
+    const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten',
+      'Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+    const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    const scales = ['','Thousand','Million','Billion','Trillion'];
+
+    function threeDigits(n){
+      let s = '';
+      if(n >= 100){ s += ones[Math.floor(n/100)] + ' Hundred '; n %= 100; }
+      if(n >= 20){ s += tens[Math.floor(n/10)] + ' '; n %= 10; }
+      if(n > 0) s += ones[n] + ' ';
+      return s.trim();
+    }
+
+    let intPart = Math.floor(Math.abs(number));
+    if(intPart === 0) return 'Zero';
+    const groups = [];
+    while(intPart > 0){ groups.unshift(intPart % 1000); intPart = Math.floor(intPart/1000); }
+    const words = [];
+    for(let i=0;i<groups.length;i++){
+      const g = groups[i];
+      if(g === 0) continue;
+      const scaleIdx = groups.length - i - 1;
+      words.push(threeDigits(g) + (scales[scaleIdx] ? ' '+scales[scaleIdx] : ''));
+    }
+    return words.join(' ').replace(/\s+/g,' ').trim();
+  },
+
+  /** ประกอบข้อความเต็ม "Amount in Words" ภาษาอังกฤษ พร้อมชื่อสกุลเงินและเศษสตางค์/เซนต์ */
+  amountInWordsEn(amount, currencyCode){
+    const meta = CURRENCIES[currencyCode] || CURRENCIES.THB;
+    const rounded = Utils.round2(Math.abs(amount));
+    const intPart = Math.floor(rounded);
+    const cents = Math.round((rounded - intPart) * 100);
+    const centsStr = String(cents).padStart(2,'0');
+    const negPrefix = amount < 0 ? 'MINUS ' : '';
+    return `${negPrefix}${meta.nameEn} ${Utils.numberToEnglishWords(intPart)} AND ${centsStr}/100 ONLY`;
   }
 };
 </script>
@@ -6287,6 +6463,10 @@ const Documents = {
       status:'Draft', date: now, dueDate: Utils.addDaysISO(now, DB.settings.creditDefault||30),
       credit: DB.settings.creditDefault||30, paymentTerms: DB.settings.termsDefault||'',
       project:'', refNo:'',
+      // "อยากเพิ่ม ฟั่งชั่น ภาษาอังกฤษเพราะมีวางบิล ตปท. เเละ สกุลเงิน" ตามด้วย "ไม่อยากออก QT
+      // เเละ INV เป็น Eng" — เก็บเฉพาะ currency ไว้ (ค่าเริ่มต้น THB เหมือนพฤติกรรมเดิมทุกประการ)
+      // ตัวเลือกภาษาเอกสาร (docLang) ถูกเอาออกแล้วตามที่ผู้ใช้ยืนยัน
+      currency: 'THB',
       customerId:null, customer:{ name:'', address:'', taxId:'', contact:'', phone:'', email:'' },
       items:[],
       discountTotal:0,
@@ -6821,6 +7001,10 @@ const Receipts = {
       customerName: (invoiceDoc.customer && invoiceDoc.customer.name) || '',
       customerAddress: (invoiceDoc.customer && invoiceDoc.customer.address) || '',
       customerTaxId: (invoiceDoc.customer && invoiceDoc.customer.taxId) || '',
+      // "อยากเพิ่ม ฟั่งชั่น ภาษาอังกฤษเพราะมีวางบิล ตปท. เเละ สกุลเงิน" — ใบเสร็จสืบทอดสกุลเงิน
+      // จากใบแจ้งหนี้ต้นทาง เพื่อให้เอกสารชุดเดียวกัน (INV→ใบเสร็จ) สอดคล้องกัน (ตัวเลือกภาษา
+      // เอกสารถูกเอาออกแล้วตาม "ไม่อยากออก QT เเละ INV เป็น Eng")
+      currency: invoiceDoc.currency || 'THB',
       project: invoiceDoc.project || '',
       items: JSON.parse(JSON.stringify(invoiceDoc.items||[])),
       paymentDate: input.paymentDate,
@@ -6938,6 +7122,63 @@ const Receipts = {
 const DOC_TITLES = {
   QT: { th:'ใบเสนอราคา', en:'Quotation' },
   INV:{ th:'ใบแจ้งหนี้', en:'Invoice' }
+};
+/** "อยากเพิ่ม ฟั่งชั่น ภาษาอังกฤษเพราะมีวางบิล ตปท. เเละ สกุลเงิน" — ผู้ใช้ต้องวางบิลลูกค้า
+ *  ต่างประเทศ จึงต้องการ (1) พิมพ์ตัวเอกสาร QT/INV/ใบเสร็จเป็นภาษาอังกฤษได้ และ (2) เลือก
+ *  สกุลเงินต่อเอกสารได้ พร้อมสัญลักษณ์ที่ถูกต้อง — เลือกทำแบบ "ต่อเอกสาร" (ไม่ใช่เปลี่ยนทั้ง
+ *  ระบบ) และ "แค่แสดงสัญลักษณ์ ไม่แปลงอัตรา" ตามที่ผู้ใช้ยืนยันใน AskUserQuestion
+ *  หมายเหตุ: นี่คนละตัวกับ DB.settings.currency (global, ใช้ใน Utils.currencySymbol()/
+ *  formatCurrency() สำหรับ Dashboard/Reports เท่านั้น) — currency ตัวนี้ผูกกับเอกสารแต่ละใบ
+ *  ผ่าน doc.currency (ดู CURRENCIES ด้านล่าง, Utils.docCurrencySymbol/formatMoneyCur,
+ *  และ DocPreview.render/renderReceipt) */
+const CURRENCIES = {
+  THB: { symbol:'฿',   nameEn:'THAI BAHT',           label:'THB — บาทไทย' },
+  USD: { symbol:'$',   nameEn:'US DOLLARS',          label:'USD — ดอลลาร์สหรัฐ' },
+  EUR: { symbol:'€',   nameEn:'EUROS',               label:'EUR — ยูโร' },
+  GBP: { symbol:'£',   nameEn:'BRITISH POUNDS',      label:'GBP — ปอนด์สเตอร์ลิง' },
+  SGD: { symbol:'S$',  nameEn:'SINGAPORE DOLLARS',   label:'SGD — ดอลลาร์สิงคโปร์' },
+  CNY: { symbol:'¥',   nameEn:'CHINESE YUAN',        label:'CNY — หยวนจีน' },
+  JPY: { symbol:'¥',   nameEn:'JAPANESE YEN',        label:'JPY — เยนญี่ปุ่น' },
+  HKD: { symbol:'HK$', nameEn:'HONG KONG DOLLARS',   label:'HKD — ดอลลาร์ฮ่องกง' },
+  AUD: { symbol:'A$',  nameEn:'AUSTRALIAN DOLLARS',  label:'AUD — ดอลลาร์ออสเตรเลีย' }
+};
+/** ป้ายข้อความคงที่บนเอกสาร (ไม่รวมข้อมูลลูกค้า/บริษัทที่เป็น free text แปลอัตโนมัติไม่ได้)
+ *  "คือ อยากให้มี 2 vision ทั้ง THA เเละ Eng" — DocPreview.render()/renderReceipt() รับ
+ *  พารามิเตอร์ lang แยกต่างหาก (ไม่ใช่ field บนตัวเอกสารแบบรอบที่แล้ว) เพื่อให้พิมพ์/Export PDF
+ *  เอกสารใบเดียวกันออกได้ทั้งสองภาษาตามปุ่มที่กด โดยไม่ต้องเปลี่ยนข้อมูลที่บันทึกไว้ */
+const DOC_I18N = {
+  th: {
+    customerName:'ชื่อลูกค้า', docNo:'เลขที่', address:'ที่อยู่', date:'วันที่',
+    contact:'ผู้ติดต่อ / โทร', paymentTerms:'เงื่อนไขการชำระเงิน', taxId:'เลขประจำตัวผู้เสียภาษีอากร',
+    credit:'เครดิต', creditDays:'วัน', project:'Project', refNo:'Reference No.',
+    no:'ลำดับ', desc:'รายละเอียด', qty:'จำนวน', unit:'หน่วย', price:'ราคา/หน่วย',
+    discPct:'ส่วนลด %', amount:'จำนวนเงิน',
+    subtotal:'รวมเงิน', billDiscount:'ส่วนลดท้ายบิล', vat:'VAT', grandTotal:'รวมราคาทั้งสิ้น',
+    wht:'หัก ณ ที่จ่าย', netPayable:'ยอดสุทธิที่ต้องชำระ', amountInWords:'ตัวอักษร',
+    paymentChannel:'ช่องทางการชำระเงิน', accountNo:'เลขบัญชี', accountName:'ชื่อบัญชี', branch:'สาขา',
+    notes:'หมายเหตุ', preparedBy:'ออกโดย/Prepared By', authorizedBy:'ผู้มีอำนาจอนุมัติ/Authorized Signature',
+    dateLbl:'วันที่', taxIdHeader:'เลขประจำตัวผู้เสียภาษีอากร', tel:'โทร',
+    customerNameRcpt:'ชื่อลูกค้า', receiptNo:'เลขที่ใบเสร็จ', paymentDate:'วันที่รับชำระ', refInvoice:'อ้างอิงใบแจ้งหนี้',
+    beforeVat:'มูลค่าก่อน VAT', netReceived:'ยอดเงินที่ได้รับจริง', paymentDetail:'รายละเอียดการรับชำระ',
+    paymentMethod:'วิธีรับชำระ', bankAccount:'บัญชีธนาคาร', refNumber:'เลขอ้างอิง', bankReceivedDate:'วันที่เงินเข้าบัญชี',
+    receivedBy:'ผู้รับเงิน', authorizedSigner:'ผู้มีอำนาจลงนาม'
+  },
+  en: {
+    customerName:'Customer Name', docNo:'No.', address:'Address', date:'Date',
+    contact:'Contact / Tel', paymentTerms:'Payment Terms', taxId:'Tax ID No.',
+    credit:'Credit', creditDays:'days', project:'Project', refNo:'Reference No.',
+    no:'No.', desc:'Description', qty:'Qty', unit:'Unit', price:'Unit Price',
+    discPct:'Disc %', amount:'Amount',
+    subtotal:'Subtotal', billDiscount:'Discount', vat:'VAT', grandTotal:'Grand Total',
+    wht:'Withholding Tax', netPayable:'Net Payable', amountInWords:'Amount in Words',
+    paymentChannel:'Payment Method', accountNo:'Account No.', accountName:'Account Name', branch:'Branch',
+    notes:'Remarks', preparedBy:'Prepared By', authorizedBy:'Authorized Signature',
+    dateLbl:'Date', taxIdHeader:'Tax ID No.', tel:'Tel',
+    customerNameRcpt:'Customer Name', receiptNo:'Receipt No.', paymentDate:'Payment Date', refInvoice:'Ref. Invoice No.',
+    beforeVat:'Amount Before VAT', netReceived:'Net Amount Received', paymentDetail:'Payment Details',
+    paymentMethod:'Payment Method', bankAccount:'Bank Account', refNumber:'Reference No.', bankReceivedDate:'Bank Received Date',
+    receivedBy:'Received By', authorizedSigner:'Authorized Signature'
+  }
 };
 const STATUS_LIST = ['Draft','PendingApproval','Sent','Approved','ReturnedForRevision','Denied','Rejected','PartiallyPaid','Paid','Cancelled','Overdue'];
 /** Thai display labels for the 3 new workflow statuses (spec: ตีกลับแก้ไข/ไม่อนุมัติ
@@ -7385,6 +7626,7 @@ const Render = {
         <td>${cancelled ? '<span class="badge" style="background:var(--gray-300);">Cancelled</span>' : '<span class="badge" style="background:var(--green);color:#fff;">Active</span>'}</td>
         <td class="nowrap">
           <button class="btn btn-sm" onclick="ExportMod.printReceiptById('${r.paymentId}')">ดู</button>
+          <button class="btn btn-sm" title="Print (English)" onclick="ExportMod.printReceiptById('${r.paymentId}','en')">EN</button>
           <button class="btn btn-sm" onclick="ExportMod.saveReceiptPdfToComputer('${r.paymentId}')">⬇ PDF</button>
           ${(!cancelled && (Auth.isAdmin()||Auth.role()==='accounting')) ? `<button class="btn btn-sm btn-danger" onclick="Actions.openCancelReceipt('${r.paymentId}')">ยกเลิก</button>` : ''}
         </td>
@@ -8591,7 +8833,10 @@ const Render = {
         <td>${invMode ? `<span class="badge ${ps.cls}">${ps.label}</span>` : `${Render.badgeHtml(d.status)}${Render.workflowMiniHtml(d)}`}</td>
         <td class="nowrap">
           <button class="btn btn-sm" onclick="Editor.open('${d.id}')">เปิด</button>
-          <button class="btn btn-sm" title="Print / Export PDF" onclick="ExportMod.printById('${d.id}')">🖨 PDF</button>
+          <button class="btn btn-sm" title="Print / Export PDF (ไทย)" onclick="ExportMod.printById('${d.id}')">🖨 PDF</button>
+          <!-- "คือต้องออกเอกสารให้ต่างชาติ" — ปุ่มพิมพ์/PDF เวอร์ชันอังกฤษแยกจากปุ่มไทยด้านซ้าย
+               ไม่ต้องเปิดเอกสารก่อนก็พิมพ์ EN ได้เลยจากตารางรายการ -->
+          <button class="btn btn-sm" title="Print / Export PDF (English)" onclick="ExportMod.printById('${d.id}','en')">🖨 EN</button>
           <button class="btn btn-sm" title="Export Excel" onclick="ExportMod.exportExcelById('${d.id}')">⬇ Excel</button>
           ${(d.type!=='INV' || Auth.role()!=='preparer') ? `<button class="btn btn-sm" onclick="Actions.duplicateDoc('${d.id}')">Duplicate</button>` : ''}
           <!-- Hidden once already converted (avoids spawning a 2nd invoice from the same
@@ -8753,15 +8998,25 @@ const Render = {
    ============================================================================ */
 const DocPreview = {
 
-  render(doc){
+  render(doc, lang){
     const t = Calc.computeTotals(doc);
     const company = DB.company;
     const bank = doc.bankId ? Banks.find(doc.bankId) : null;
     const titles = DOC_TITLES[doc.type];
-    const cur = Utils.currencySymbol();
+    // "คือ อยากให้มี 2 vision ทั้ง THA เเละ Eng" / "คือต้องออกเอกสารให้ต่างชาติ" / "เป็นสกุลเงิน
+    // ต่างๆ" — `lang` เป็นพารามิเตอร์ที่ส่งเข้ามาตอนพิมพ์/Export PDF เท่านั้น (ไม่ได้บันทึกไว้ใน
+    // ตัวเอกสาร) ผู้ใช้เลือกได้ทุกครั้งว่าจะออกเป็นไทยหรืออังกฤษ โดยไม่ต้องเปลี่ยนข้อมูลที่บันทึก
+    // ไว้ — ค่าเริ่มต้น (ไม่ส่ง lang มา เช่นตอนแสดง preview สดในหน้าฟอร์ม) ยังเป็นไทยเหมือนเดิม
+    // ส่วน doc.currency ยังคงผูกกับเอกสารแต่ละใบเหมือนเดิม (ไม่ใช่ global setting Utils.currencySymbol())
+    const curCode = doc.currency || 'THB';
+    const cur = Utils.docCurrencySymbol(curCode);
+    const fmt = (n)=> cur + Utils.formatMoney(n);
+    const L = DOC_I18N[lang === 'en' ? 'en' : 'th'];
 
     const bahtSourceAmount = (DB.settings.bahtTextSource === 'net') ? t.netPayable : t.grandTotal;
-    const bahtText = Utils.thaiBahtText(bahtSourceAmount);
+    const bahtText = (lang === 'en')
+      ? Utils.amountInWordsEn(bahtSourceAmount, curCode)
+      : Utils.thaiBahtText(bahtSourceAmount);
 
     // ---- header: logo + company info ----
     const logoHtml = company.logo
@@ -8773,9 +9028,9 @@ const DocPreview = {
         <div class="company-block">
           <b>${Utils.escapeHtml(company.name || '(ยังไม่ได้ตั้งค่าชื่อบริษัท)')}</b>
           <div>${Utils.nl2br(company.address||'')}</div>
-          <div>เลขประจำตัวผู้เสียภาษีอากร ${Utils.escapeHtml(company.taxId||'')}</div>
-          <div>${company.email ? 'Email : '+Utils.escapeHtml(company.email) : ''} ${company.phone ? '&nbsp;&nbsp;โทร : '+Utils.escapeHtml(company.phone) : ''}</div>
-          ${company.website ? `<div>เว็บไซต์ : ${Utils.escapeHtml(company.website)}</div>` : ''}
+          <div>${L.taxIdHeader} ${Utils.escapeHtml(company.taxId||'')}</div>
+          <div>${company.email ? 'Email : '+Utils.escapeHtml(company.email) : ''} ${company.phone ? '&nbsp;&nbsp;'+L.tel+' : '+Utils.escapeHtml(company.phone) : ''}</div>
+          ${company.website ? `<div>${lang==='en'?'Website':'เว็บไซต์'} : ${Utils.escapeHtml(company.website)}</div>` : ''}
         </div>
       </div>
       <div class="doc-title-box">${titles.th}/${titles.en}</div>
@@ -8785,26 +9040,26 @@ const DocPreview = {
     const cust = doc.customer || {};
     const projectRow = (doc.project || doc.refNo) ? `
       <tr>
-        <td class="lbl">Project</td><td class="val">${Utils.escapeHtml(doc.project||'-')}</td>
-        <td class="lbl">Reference No.</td><td class="val">${Utils.escapeHtml(doc.refNo||'-')}</td>
+        <td class="lbl">${L.project}</td><td class="val">${Utils.escapeHtml(doc.project||'-')}</td>
+        <td class="lbl">${L.refNo}</td><td class="val">${Utils.escapeHtml(doc.refNo||'-')}</td>
       </tr>` : '';
     const infoHtml = `
       <table class="doc-info-table">
         <tr>
-          <td class="lbl">ชื่อลูกค้า</td><td class="val">${Utils.escapeHtml(cust.name||'')}</td>
-          <td class="lbl">เลขที่${titles.th}</td><td class="val">${Utils.escapeHtml(doc.docNumber||'')}</td>
+          <td class="lbl">${L.customerName}</td><td class="val">${Utils.escapeHtml(cust.name||'')}</td>
+          <td class="lbl">${L.docNo}${lang==='en'?' ':''}${titles[lang==='en'?'en':'th']}</td><td class="val">${Utils.escapeHtml(doc.docNumber||'')}</td>
         </tr>
         <tr>
-          <td class="lbl">ที่อยู่</td><td class="val">${Utils.nl2br(cust.address||'')}</td>
-          <td class="lbl">วันที่</td><td class="val">${Utils.formatDateThai(doc.date)}</td>
+          <td class="lbl">${L.address}</td><td class="val">${Utils.nl2br(cust.address||'')}</td>
+          <td class="lbl">${L.date}</td><td class="val">${Utils.formatDateThai(doc.date)}</td>
         </tr>
         <tr>
-          <td class="lbl">ผู้ติดต่อ / โทร</td><td class="val">${Utils.escapeHtml([cust.contact,cust.phone].filter(Boolean).join(' / ')||'-')}</td>
-          <td class="lbl">เงื่อนไขการชำระเงิน</td><td class="val">${Utils.escapeHtml(doc.paymentTerms||'')}</td>
+          <td class="lbl">${L.contact}</td><td class="val">${Utils.escapeHtml([cust.contact,cust.phone].filter(Boolean).join(' / ')||'-')}</td>
+          <td class="lbl">${L.paymentTerms}</td><td class="val">${Utils.escapeHtml(doc.paymentTerms||'')}</td>
         </tr>
         <tr>
-          <td class="lbl">เลขประจำตัวผู้เสียภาษีอากร</td><td class="val">${Utils.escapeHtml(cust.taxId||'')}</td>
-          <td class="lbl">เครดิต</td><td class="val">${doc.credit!==undefined && doc.credit!==null && doc.credit!=='' ? doc.credit+' วัน' : '-'}</td>
+          <td class="lbl">${L.taxId}</td><td class="val">${Utils.escapeHtml(cust.taxId||'')}</td>
+          <td class="lbl">${L.credit}</td><td class="val">${doc.credit!==undefined && doc.credit!==null && doc.credit!=='' ? doc.credit+' '+L.creditDays : '-'}</td>
         </tr>
         ${projectRow}
       </table>
@@ -8820,9 +9075,9 @@ const DocPreview = {
           <td class="c-desc">${Utils.escapeHtml(it.description||'')}</td>
           <td class="c-qty center">${Utils.formatMoney(it.qty).replace(/\.00$/,'')}</td>
           <td class="c-unit center">${Utils.escapeHtml(it.unit||'')}</td>
-          <td class="c-price num">${Utils.formatMoney(it.price)}</td>
+          <td class="c-price num">${fmt(it.price)}</td>
           <td class="c-disc num">${Utils.num(it.discountPct) ? Utils.formatMoney(it.discountPct)+'%' : '-'}</td>
-          <td class="c-amt num">${Utils.formatMoney(Calc.itemAmount(it))}</td>
+          <td class="c-amt num">${fmt(Calc.itemAmount(it))}</td>
         </tr>`).join('');
     const fillCount = Math.max(0, MIN_ROWS - (doc.items||[]).length);
     for(let i=0;i<fillCount;i++){
@@ -8831,8 +9086,8 @@ const DocPreview = {
     const itemsHtml = `
       <table class="doc-items-table">
         <thead><tr>
-          <th class="c-idx">ลำดับ</th><th class="c-desc">รายละเอียด</th><th class="c-qty">จำนวน</th>
-          <th class="c-unit">หน่วย</th><th class="c-price">ราคา/หน่วย</th><th class="c-disc">ส่วนลด %</th><th class="c-amt">จำนวนเงิน</th>
+          <th class="c-idx">${L.no}</th><th class="c-desc">${L.desc}</th><th class="c-qty">${L.qty}</th>
+          <th class="c-unit">${L.unit}</th><th class="c-price">${L.price}</th><th class="c-disc">${L.discPct}</th><th class="c-amt">${L.amount}</th>
         </tr></thead>
         <tbody>${itemRows}</tbody>
       </table>
@@ -8840,17 +9095,17 @@ const DocPreview = {
 
     // ---- summary block (baht text + totals table) ----
     let summaryRows = `
-      <tr><td class="lbl">รวมเงิน</td><td class="val">${Utils.formatMoney(t.subtotal)}</td></tr>`;
-    if(t.discountTotal) summaryRows += `<tr><td class="lbl">ส่วนลดท้ายบิล</td><td class="val">-${Utils.formatMoney(t.discountTotal)}</td></tr>`;
-    if(doc.mgmtFeeEnabled) summaryRows += `<tr><td class="lbl">Management Fee ${Utils.num(doc.mgmtFeePct)}%</td><td class="val">${Utils.formatMoney(t.mgmtFee)}</td></tr>`;
-    if(doc.vatEnabled) summaryRows += `<tr><td class="lbl">VAT ${Utils.num(doc.vatPct)}%</td><td class="val">${Utils.formatMoney(t.vat)}</td></tr>`;
-    summaryRows += `<tr class="total"><td class="lbl">รวมราคาทั้งสิ้น</td><td class="val">${Utils.formatMoney(t.grandTotal)}</td></tr>`;
-    if(doc.whtEnabled) summaryRows += `<tr><td class="lbl">หัก ณ ที่จ่าย ${Utils.num(doc.whtPct)}%</td><td class="val">-${Utils.formatMoney(t.wht)}</td></tr>`;
-    summaryRows += `<tr class="net"><td class="lbl">ยอดสุทธิที่ต้องชำระ</td><td class="val">${Utils.formatMoney(t.netPayable)}</td></tr>`;
+      <tr><td class="lbl">${L.subtotal}</td><td class="val">${fmt(t.subtotal)}</td></tr>`;
+    if(t.discountTotal) summaryRows += `<tr><td class="lbl">${L.billDiscount}</td><td class="val">-${fmt(t.discountTotal)}</td></tr>`;
+    if(doc.mgmtFeeEnabled) summaryRows += `<tr><td class="lbl">Management Fee ${Utils.num(doc.mgmtFeePct)}%</td><td class="val">${fmt(t.mgmtFee)}</td></tr>`;
+    if(doc.vatEnabled) summaryRows += `<tr><td class="lbl">${L.vat} ${Utils.num(doc.vatPct)}%</td><td class="val">${fmt(t.vat)}</td></tr>`;
+    summaryRows += `<tr class="total"><td class="lbl">${L.grandTotal}</td><td class="val">${fmt(t.grandTotal)}</td></tr>`;
+    if(doc.whtEnabled) summaryRows += `<tr><td class="lbl">${L.wht} ${Utils.num(doc.whtPct)}%</td><td class="val">-${fmt(t.wht)}</td></tr>`;
+    summaryRows += `<tr class="net"><td class="lbl">${L.netPayable}</td><td class="val">${fmt(t.netPayable)}</td></tr>`;
 
     const bottomHtml = `
       <div class="doc-bottom-block">
-        <div class="doc-baht-text">ตัวอักษร ( ${bahtText} )</div>
+        <div class="doc-baht-text">${L.amountInWords} ( ${bahtText} )</div>
         <table class="doc-summary-table">${summaryRows}</table>
       </div>
     `;
@@ -8858,19 +9113,19 @@ const DocPreview = {
     // ---- payment + notes ----
     const bankHtml = bank ? `
       <div class="doc-section block">
-        <span class="sec-title">ช่องทางการชำระเงิน</span>
+        <span class="sec-title">${L.paymentChannel}</span>
         <div class="sec-body">
           ${Utils.escapeHtml(bank.bank||'')}<br>
-          เลขบัญชี : ${Utils.escapeHtml(bank.accountNo||'')}<br>
-          ชื่อบัญชี : ${Utils.escapeHtml(bank.accountName||'')}
-          ${bank.branch ? '<br>สาขา : '+Utils.escapeHtml(bank.branch) : ''}
+          ${L.accountNo} : ${Utils.escapeHtml(bank.accountNo||'')}<br>
+          ${L.accountName} : ${Utils.escapeHtml(bank.accountName||'')}
+          ${bank.branch ? '<br>'+L.branch+' : '+Utils.escapeHtml(bank.branch) : ''}
           ${bank.qr ? `<br><img src="${bank.qr}" style="height:90px;margin-top:6px;">` : ''}
         </div>
       </div>` : '';
 
     const notesHtml = doc.notes ? `
       <div class="doc-section block">
-        <span class="sec-title">หมายเหตุ</span>
+        <span class="sec-title">${L.notes}</span>
         <div class="sec-body">${Utils.nl2br(doc.notes)}</div>
       </div>` : '';
 
@@ -8886,16 +9141,16 @@ const DocPreview = {
     const signHtml = `
       <div class="doc-sign-grid">
         <div class="doc-sign-col">
-          <div class="sec-title">ออกโดย/Prepared By</div>
+          <div class="sec-title">${L.preparedBy}</div>
           <div class="doc-sign-line">${preparedSig}</div>
           <div class="doc-sign-name">( ${Utils.escapeHtml(doc.preparedByName||'')} )</div>
-          <div class="doc-sign-date">วันที่ ${Utils.formatDateThai(doc.date)}</div>
+          <div class="doc-sign-date">${L.dateLbl} ${Utils.formatDateThai(doc.date)}</div>
         </div>
         <div class="doc-sign-col">
-          <div class="sec-title">ผู้มีอำนาจอนุมัติ/Authorized Signature</div>
+          <div class="sec-title">${L.authorizedBy}</div>
           <div class="doc-sign-line">${authSig}</div>
           <div class="doc-sign-name">( ${Utils.escapeHtml(doc.authorizedByName||'')} )</div>
-          <div class="doc-sign-date">วันที่ ${(doc.workflow && doc.workflow.authApprovedAt) ? Utils.formatDateThai(new Date(doc.workflow.authApprovedAt)) : '________/________/_________'}</div>
+          <div class="doc-sign-date">${L.dateLbl} ${(doc.workflow && doc.workflow.authApprovedAt) ? Utils.formatDateThai(new Date(doc.workflow.authApprovedAt)) : '________/________/_________'}</div>
         </div>
       </div>
     `;
@@ -8921,8 +9176,8 @@ const DocPreview = {
     `;
   },
 
-  renderInto(containerId, doc){
-    document.getElementById(containerId).innerHTML = DocPreview.render(doc);
+  renderInto(containerId, doc, lang){
+    document.getElementById(containerId).innerHTML = DocPreview.render(doc, lang);
   },
 
   /** Renders a Payment Receipt (ใบเสร็จรับเงิน/ใบกำกับภาษี) — a sibling to render()
@@ -8933,9 +9188,18 @@ const DocPreview = {
    *  .doc-summary-table/.doc-sign-grid CSS classes as render() above so it
    *  inherits identical on-screen, print, and PDF-snapshot styling for free (see
    *  .doc-page.type-rv for its own accent color, mirroring .doc-page.type-inv). */
-  renderReceipt(receipt){
+  renderReceipt(receipt, lang){
     const company = DB.company;
-    const bahtText = Utils.thaiBahtText(receipt.cashReceived);
+    // "คือ อยากให้มี 2 vision ทั้ง THA เเละ Eng" — เหมือน DocPreview.render() ด้านบน: lang
+    // เป็นพารามิเตอร์ตอนพิมพ์/Export เท่านั้น ไม่ใช่ field บนตัวใบเสร็จ ส่วนสกุลเงิน
+    // (receipt.currency, สืบทอดจาก invoice ต้นทางใน Receipts.record()) ยังคงผูกกับใบเสร็จเหมือนเดิม
+    const curCode = receipt.currency || 'THB';
+    const cur = Utils.docCurrencySymbol(curCode);
+    const fmt = (n)=> cur + Utils.formatMoney(n);
+    const L = DOC_I18N[lang === 'en' ? 'en' : 'th'];
+    const bahtText = (lang === 'en')
+      ? Utils.amountInWordsEn(receipt.cashReceived, curCode)
+      : Utils.thaiBahtText(receipt.cashReceived);
     const logoHtml = company.logo
       ? `<img class="doc-logo" src="${company.logo}" alt="logo">`
       : `<div class="doc-logo-placeholder">LOGO</div>`;
@@ -8945,8 +9209,8 @@ const DocPreview = {
         <div class="company-block">
           <b>${Utils.escapeHtml(company.name || '(ยังไม่ได้ตั้งค่าชื่อบริษัท)')}</b>
           <div>${Utils.nl2br(company.address||'')}</div>
-          <div>เลขประจำตัวผู้เสียภาษีอากร ${Utils.escapeHtml(company.taxId||'')}</div>
-          <div>${company.email ? 'Email : '+Utils.escapeHtml(company.email) : ''} ${company.phone ? '&nbsp;&nbsp;โทร : '+Utils.escapeHtml(company.phone) : ''}</div>
+          <div>${L.taxIdHeader} ${Utils.escapeHtml(company.taxId||'')}</div>
+          <div>${company.email ? 'Email : '+Utils.escapeHtml(company.email) : ''} ${company.phone ? '&nbsp;&nbsp;'+L.tel+' : '+Utils.escapeHtml(company.phone) : ''}</div>
         </div>
       </div>
       <div class="doc-title-box">ใบเสร็จรับเงิน/ใบกำกับภาษี<br>Receipt / Tax Invoice</div>
@@ -8955,16 +9219,16 @@ const DocPreview = {
     const infoHtml = `
       <table class="doc-info-table">
         <tr>
-          <td class="lbl">ชื่อลูกค้า</td><td class="val">${Utils.escapeHtml(receipt.customerName||'')}</td>
-          <td class="lbl">เลขที่ใบเสร็จ</td><td class="val">${Utils.escapeHtml(receipt.receiptNumber||'')}</td>
+          <td class="lbl">${L.customerNameRcpt}</td><td class="val">${Utils.escapeHtml(receipt.customerName||'')}</td>
+          <td class="lbl">${L.receiptNo}</td><td class="val">${Utils.escapeHtml(receipt.receiptNumber||'')}</td>
         </tr>
         <tr>
-          <td class="lbl">ที่อยู่</td><td class="val">${Utils.nl2br(receipt.customerAddress||'')}</td>
-          <td class="lbl">วันที่รับชำระ</td><td class="val">${Utils.formatDateThai(receipt.paymentDate)}</td>
+          <td class="lbl">${L.address}</td><td class="val">${Utils.nl2br(receipt.customerAddress||'')}</td>
+          <td class="lbl">${L.paymentDate}</td><td class="val">${Utils.formatDateThai(receipt.paymentDate)}</td>
         </tr>
         <tr>
-          <td class="lbl">เลขประจำตัวผู้เสียภาษี</td><td class="val">${Utils.escapeHtml(receipt.customerTaxId||'')}</td>
-          <td class="lbl">อ้างอิงใบแจ้งหนี้</td><td class="val">${Utils.escapeHtml(receipt.invoiceNumber||'')}</td>
+          <td class="lbl">${L.taxId}</td><td class="val">${Utils.escapeHtml(receipt.customerTaxId||'')}</td>
+          <td class="lbl">${L.refInvoice}</td><td class="val">${Utils.escapeHtml(receipt.invoiceNumber||'')}</td>
         </tr>
       </table>
     `;
@@ -8976,8 +9240,8 @@ const DocPreview = {
           <td class="c-desc">${Utils.escapeHtml(it.description||'')}</td>
           <td class="c-qty center">${Utils.formatMoney(it.qty).replace(/\.00$/,'')}</td>
           <td class="c-unit center">${Utils.escapeHtml(it.unit||'')}</td>
-          <td class="c-price num">${Utils.formatMoney(it.price)}</td>
-          <td class="c-amt num">${Utils.formatMoney(Calc.itemAmount(it))}</td>
+          <td class="c-price num">${fmt(it.price)}</td>
+          <td class="c-amt num">${fmt(Calc.itemAmount(it))}</td>
         </tr>`).join('');
     const fillCount = Math.max(0, MIN_ROWS - (receipt.items||[]).length);
     for(let i=0;i<fillCount;i++){
@@ -8986,57 +9250,57 @@ const DocPreview = {
     const itemsHtml = `
       <table class="doc-items-table">
         <thead><tr>
-          <th class="c-idx">ลำดับ</th><th class="c-desc">รายละเอียด</th><th class="c-qty">จำนวน</th>
-          <th class="c-unit">หน่วย</th><th class="c-price">ราคา/หน่วย</th><th class="c-amt">จำนวนเงิน</th>
+          <th class="c-idx">${L.no}</th><th class="c-desc">${L.desc}</th><th class="c-qty">${L.qty}</th>
+          <th class="c-unit">${L.unit}</th><th class="c-price">${L.price}</th><th class="c-amt">${L.amount}</th>
         </tr></thead>
         <tbody>${itemRows}</tbody>
       </table>
     `;
 
     const summaryRows = `
-      <tr><td class="lbl">มูลค่าก่อน VAT</td><td class="val">${Utils.formatMoney(receipt.amountBeforeVat)}</td></tr>
-      <tr><td class="lbl">VAT</td><td class="val">${Utils.formatMoney(receipt.vatAmount)}</td></tr>
-      <tr class="total"><td class="lbl">รวมราคาทั้งสิ้น</td><td class="val">${Utils.formatMoney(receipt.grandTotal)}</td></tr>
-      <tr><td class="lbl">หัก ณ ที่จ่าย</td><td class="val">-${Utils.formatMoney(receipt.whtAmount)}</td></tr>
-      <tr class="net"><td class="lbl">ยอดเงินที่ได้รับจริง</td><td class="val">${Utils.formatMoney(receipt.cashReceived)}</td></tr>
+      <tr><td class="lbl">${L.beforeVat}</td><td class="val">${fmt(receipt.amountBeforeVat)}</td></tr>
+      <tr><td class="lbl">${L.vat}</td><td class="val">${fmt(receipt.vatAmount)}</td></tr>
+      <tr class="total"><td class="lbl">${L.grandTotal}</td><td class="val">${fmt(receipt.grandTotal)}</td></tr>
+      <tr><td class="lbl">${L.wht}</td><td class="val">-${fmt(receipt.whtAmount)}</td></tr>
+      <tr class="net"><td class="lbl">${L.netReceived}</td><td class="val">${fmt(receipt.cashReceived)}</td></tr>
     `;
     const bottomHtml = `
       <div class="doc-bottom-block">
-        <div class="doc-baht-text">ตัวอักษร ( ${bahtText} )</div>
+        <div class="doc-baht-text">${L.amountInWords} ( ${bahtText} )</div>
         <table class="doc-summary-table">${summaryRows}</table>
       </div>
     `;
 
     const paymentHtml = `
       <div class="doc-section block">
-        <span class="sec-title">รายละเอียดการรับชำระ</span>
+        <span class="sec-title">${L.paymentDetail}</span>
         <div class="sec-body">
-          วิธีรับชำระ : ${Utils.escapeHtml(receipt.paymentMethod||'-')}<br>
-          ${receipt.bankAccountName ? 'บัญชีธนาคาร : '+Utils.escapeHtml(receipt.bankAccountName)+'<br>' : ''}
-          ${receipt.referenceNumber ? 'เลขอ้างอิง : '+Utils.escapeHtml(receipt.referenceNumber)+'<br>' : ''}
-          วันที่เงินเข้าบัญชี : ${Utils.formatDateThai(receipt.bankReceivedDate)}
+          ${L.paymentMethod} : ${Utils.escapeHtml(receipt.paymentMethod||'-')}<br>
+          ${receipt.bankAccountName ? L.bankAccount+' : '+Utils.escapeHtml(receipt.bankAccountName)+'<br>' : ''}
+          ${receipt.referenceNumber ? L.refNumber+' : '+Utils.escapeHtml(receipt.referenceNumber)+'<br>' : ''}
+          ${L.bankReceivedDate} : ${Utils.formatDateThai(receipt.bankReceivedDate)}
         </div>
       </div>`;
 
     const notesHtml = receipt.note ? `
       <div class="doc-section block">
-        <span class="sec-title">หมายเหตุ</span>
+        <span class="sec-title">${L.notes}</span>
         <div class="sec-body">${Utils.nl2br(receipt.note)}</div>
       </div>` : '';
 
     const signHtml = `
       <div class="doc-sign-grid">
         <div class="doc-sign-col">
-          <div class="sec-title">ผู้รับเงิน</div>
+          <div class="sec-title">${L.receivedBy}</div>
           <div class="doc-sign-line"></div>
           <div class="doc-sign-name">( ${Utils.escapeHtml(receipt.createdBy||'')} )</div>
-          <div class="doc-sign-date">วันที่ ${Utils.formatDateThai(receipt.paymentDate)}</div>
+          <div class="doc-sign-date">${L.dateLbl} ${Utils.formatDateThai(receipt.paymentDate)}</div>
         </div>
         <div class="doc-sign-col">
-          <div class="sec-title">ผู้มีอำนาจลงนาม</div>
+          <div class="sec-title">${L.authorizedSigner}</div>
           <div class="doc-sign-line">${company.authorizedSignature ? `<img src="${company.authorizedSignature}">` : ''}</div>
           <div class="doc-sign-name">( ${Utils.escapeHtml(company.authorizedByName||'')} )</div>
-          <div class="doc-sign-date">วันที่ ${Utils.formatDateThai(receipt.paymentDate)}</div>
+          <div class="doc-sign-date">${L.dateLbl} ${Utils.formatDateThai(receipt.paymentDate)}</div>
         </div>
       </div>
     `;
@@ -9059,8 +9323,8 @@ const DocPreview = {
     `;
   },
 
-  renderReceiptInto(containerId, receipt){
-    document.getElementById(containerId).innerHTML = DocPreview.renderReceipt(receipt);
+  renderReceiptInto(containerId, receipt, lang){
+    document.getElementById(containerId).innerHTML = DocPreview.renderReceipt(receipt, lang);
   }
 };
 </script>
@@ -9146,6 +9410,7 @@ const Editor = {
     document.getElementById('doc-terms').value = d.paymentTerms || '';
     document.getElementById('doc-project').value = d.project || '';
     document.getElementById('doc-refno').value = d.refNo || '';
+    document.getElementById('doc-currency').value = d.currency || 'THB';
 
     document.getElementById('in-discount-total').value = d.discountTotal || 0;
     document.getElementById('chk-mgmtfee').checked = !!d.mgmtFeeEnabled;
@@ -9204,6 +9469,9 @@ const Editor = {
     document.getElementById('view-editor').classList.toggle('editor-readonly', invViewOnly);
     document.getElementById('doc-type-select').disabled = invViewOnly;
     document.getElementById('btn-save-doc').style.display = invViewOnly ? 'none' : '';
+    // ฟอร์มเพิ่งถูกเติมค่าจากเอกสาร (ใหม่หรือเปิดของเดิม) ยังไม่ถือว่ามีการ "แก้ไข" ใดๆ
+    // จากผู้ใช้เอง — เคลียร์ flag ทุกครั้งที่ populateForm ทำงาน (ดู UI.editorDirty)
+    UI.editorDirty = false;
   },
 
   /* ---------------------------- APPROVAL WORKFLOW ---------------------------- */
@@ -9673,6 +9941,7 @@ const Editor = {
           ${cancelled ? ' • ยกเลิก: '+Utils.escapeHtml(r.cancelReason||'') : ''}
         </div>
         <button class="btn btn-sm" onclick="ExportMod.printReceiptById('${r.paymentId}')">🖨 พิมพ์/PDF</button>
+        <button class="btn btn-sm" title="Print (English)" onclick="ExportMod.printReceiptById('${r.paymentId}','en')">🖨 EN</button>
         <button class="btn btn-sm" onclick="ExportMod.saveReceiptPdfToComputer('${r.paymentId}')">⬇ PDF</button>
         ${(!cancelled && (Auth.isAdmin()||Auth.role()==='accounting')) ? `<button class="btn btn-sm btn-danger" onclick="Actions.openCancelReceipt('${r.paymentId}')">ยกเลิก</button>` : ''}
       </div>`;
@@ -9759,6 +10028,7 @@ const Editor = {
     d.paymentTerms = document.getElementById('doc-terms').value;
     d.project = document.getElementById('doc-project').value;
     d.refNo = document.getElementById('doc-refno').value;
+    d.currency = document.getElementById('doc-currency').value || 'THB';
 
     d.discountTotal = Utils.num(document.getElementById('in-discount-total').value);
     d.mgmtFeeEnabled = document.getElementById('chk-mgmtfee').checked;
@@ -9881,6 +10151,9 @@ const Editor = {
       const saved = Documents.save(UI.editingDraft);
       UI.editingDocId = saved.id;
       Utils.toast('บันทึกเอกสารสำเร็จ', 'ok');
+      // บันทึกสำเร็จแล้ว = ไม่มีอะไร "ยังไม่ได้บันทึก" อีกต่อไป (ดู UI.editorDirty +
+      // beforeunload listener ใน wireEvents())
+      UI.editorDirty = false;
 
       // Reminder modal — "ขึ้นแจ้งเตือนอันนี้ทุกครั้ง ที่มีการบันทึกใบเสนอราคา". Scoped to
       // Quotations still in Draft/ReturnedForRevision (same statuses
@@ -11495,10 +11768,13 @@ const Actions = {
    11. EXPORT MODULE — Print / PDF (browser print) + CSV
    ============================================================================ */
 const ExportMod = {
-  /** Print/Export-PDF the document currently open in the editor form */
-  print(){
+  /** Print/Export-PDF the document currently open in the editor form.
+   *  "คือ อยากให้มี 2 vision ทั้ง THA เเละ Eng" — `lang` ('th'/'en') เลือกได้ทุกครั้งที่กดพิมพ์/
+   *  Export โดยไม่ต้องเปลี่ยนข้อมูลที่บันทึกไว้ในเอกสาร (ดู DocPreview.render()) ไม่ส่ง = ไทย
+   *  เหมือนพฤติกรรมเดิมทุกประการ */
+  print(lang){
     Editor.syncFormIntoDraft();
-    ExportMod.printDoc(UI.editingDraft);
+    ExportMod.printDoc(UI.editingDraft, lang);
   },
 
   /** Print/Export-PDF any document object directly (used by editor AND by the
@@ -11506,18 +11782,18 @@ const ExportMod = {
    *  All images are already base64 data-URIs, so no async wait is needed —
    *  window.print() is called synchronously (in the same click handler) so
    *  browsers do not mistake it for an unrequested popup. */
-  printDoc(doc){
+  printDoc(doc, lang){
     if(!doc){ Utils.toast('ไม่พบเอกสารสำหรับพิมพ์', 'err'); return; }
     const area = document.getElementById('print-area');
-    area.innerHTML = DocPreview.render(doc);
+    area.innerHTML = DocPreview.render(doc, lang);
     window.print();
     if(doc.id){
-      ActivityLog.log('Export PDF', doc.type === 'INV' ? 'Invoice' : 'Quotation', { recordId: doc.id, recordName: doc.docNumber });
+      ActivityLog.log('Export PDF' + (lang==='en' ? ' (English)' : ''), doc.type === 'INV' ? 'Invoice' : 'Quotation', { recordId: doc.id, recordName: doc.docNumber });
     }
   },
 
-  printById(id){
-    ExportMod.printDoc(Documents.find(id));
+  printById(id, lang){
+    ExportMod.printDoc(Documents.find(id), lang);
   },
 
   /** Renders `doc` into a temporary, off-screen container (moved way outside the
@@ -11538,13 +11814,13 @@ const ExportMod = {
    *  page (standard html2canvas+jsPDF technique: redraw the same full-height image on
    *  each page, shifted up by one page-height each time — jsPDF clips to the page
    *  bounds automatically, so only that page's slice actually shows). */
-  async generateDocumentPdfBlob(doc){
+  async generateDocumentPdfBlob(doc, lang){
     if(typeof window.html2canvas === 'undefined' || !window.jspdf){
       throw new Error('ไลบรารีสร้าง PDF (html2canvas/jsPDF) โหลดไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
     }
     const holder = document.createElement('div');
     holder.style.cssText = 'position:fixed;top:0;left:-99999px;width:210mm;pointer-events:none;background:#fff;';
-    holder.innerHTML = DocPreview.render(doc);
+    holder.innerHTML = DocPreview.render(doc, lang);
     document.body.appendChild(holder);
     try{
       const canvas = await window.html2canvas(holder, { scale: 2, useCORS: true });
@@ -11606,15 +11882,18 @@ const ExportMod = {
    *  exactly, then triggers a direct file download via Utils.downloadBlob (browser
    *  either saves straight to Downloads or shows its own native Save-As dialog,
    *  depending on that browser's own download settings). */
-  async saveDocPdfToComputer(){
+  /** "คือ อยากให้มี 2 vision ทั้ง THA เเละ Eng" — `lang` เลือกได้ตอนกดปุ่มเท่านั้น ไฟล์ภาษา
+   *  อังกฤษได้ชื่อไฟล์ต่อท้าย _EN กันสับสนกับไฟล์ไทย */
+  async saveDocPdfToComputer(lang){
     Editor.syncFormIntoDraft();
     const doc = UI.editingDraft;
     const busyEl = Utils.toast('กำลังสร้างไฟล์ PDF...', 'busy');
     try{
-      const blob = await ExportMod.generateDocumentPdfBlob(doc);
-      Utils.downloadBlob(blob, `${doc.docNumber || 'document'}.pdf`);
+      const blob = await ExportMod.generateDocumentPdfBlob(doc, lang);
+      const suffix = lang==='en' ? '_EN' : '';
+      Utils.downloadBlob(blob, `${doc.docNumber || 'document'}${suffix}.pdf`);
       Utils.toast('บันทึกไฟล์ PDF ลงเครื่องสำเร็จ', 'ok');
-      ActivityLog.log('Save PDF ลงเครื่อง', doc.type === 'INV' ? 'Invoice' : 'Quotation', { recordId: doc.id, recordName: doc.docNumber });
+      ActivityLog.log('Save PDF ลงเครื่อง' + (lang==='en' ? ' (English)' : ''), doc.type === 'INV' ? 'Invoice' : 'Quotation', { recordId: doc.id, recordName: doc.docNumber });
     }catch(err){
       console.error('Save PDF to computer failed', err);
       Utils.toast(err.message || 'สร้างไฟล์ PDF ไม่สำเร็จ', 'err');
@@ -11764,27 +12043,28 @@ const ExportMod = {
   /** Print/Export-PDF a Payment Receipt — same native-print-dialog path as
    *  printDoc() above (ExportMod.print/printDoc/printById are untouched), just
    *  rendering through DocPreview.renderReceipt() instead of DocPreview.render(). */
-  printReceipt(receipt){
+  /** "คือ อยากให้มี 2 vision ทั้ง THA เเละ Eng" — `lang` เลือกได้ตอนพิมพ์ ไม่ส่ง = ไทยเหมือนเดิม */
+  printReceipt(receipt, lang){
     if(!receipt){ Utils.toast('ไม่พบใบเสร็จสำหรับพิมพ์', 'err'); return; }
     const area = document.getElementById('print-area');
-    area.innerHTML = DocPreview.renderReceipt(receipt);
+    area.innerHTML = DocPreview.renderReceipt(receipt, lang);
     window.print();
-    ActivityLog.log('Export PDF', 'Payment', { recordId: receipt.paymentId, recordName: receipt.receiptNumber });
+    ActivityLog.log('Export PDF' + (lang==='en' ? ' (English)' : ''), 'Payment', { recordId: receipt.paymentId, recordName: receipt.receiptNumber });
   },
-  printReceiptById(paymentId){
-    ExportMod.printReceipt(Receipts.find(paymentId));
+  printReceiptById(paymentId, lang){
+    ExportMod.printReceipt(Receipts.find(paymentId), lang);
   },
 
   /** Same html2canvas+jsPDF snapshot technique as generateDocumentPdfBlob() above
    *  (kept fully separate rather than adding a type-branch there), so a receipt's
    *  direct "Save PDF ลงเครื่อง" download works identically reliably. */
-  async generateReceiptPdfBlob(receipt){
+  async generateReceiptPdfBlob(receipt, lang){
     if(typeof window.html2canvas === 'undefined' || !window.jspdf){
       throw new Error('ไลบรารีสร้าง PDF (html2canvas/jsPDF) โหลดไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
     }
     const holder = document.createElement('div');
     holder.style.cssText = 'position:fixed;top:0;left:-99999px;width:210mm;pointer-events:none;background:#fff;';
-    holder.innerHTML = DocPreview.renderReceipt(receipt);
+    holder.innerHTML = DocPreview.renderReceipt(receipt, lang);
     document.body.appendChild(holder);
     try{
       const canvas = await window.html2canvas(holder, { scale: 2, useCORS: true });
@@ -11814,13 +12094,14 @@ const ExportMod = {
       document.body.removeChild(holder);
     }
   },
-  async saveReceiptPdfToComputer(paymentId){
+  async saveReceiptPdfToComputer(paymentId, lang){
     const receipt = Receipts.find(paymentId);
     if(!receipt){ Utils.toast('ไม่พบใบเสร็จ', 'err'); return; }
     const busyEl = Utils.toast('กำลังสร้างไฟล์ PDF...', 'busy');
     try{
-      const blob = await ExportMod.generateReceiptPdfBlob(receipt);
-      Utils.downloadBlob(blob, `${receipt.receiptNumber||'receipt'}.pdf`);
+      const blob = await ExportMod.generateReceiptPdfBlob(receipt, lang);
+      const suffix = lang==='en' ? '_EN' : '';
+      Utils.downloadBlob(blob, `${receipt.receiptNumber||'receipt'}${suffix}.pdf`);
       Utils.toast('บันทึกไฟล์ PDF ลงเครื่องสำเร็จ', 'ok');
     }catch(err){
       Utils.toast(err.message || 'สร้างไฟล์ PDF ไม่สำเร็จ', 'err');
@@ -13496,6 +13777,39 @@ function wireEvents(){
   // แถวชิป KPI ละเอียดถูกเอาออกจาก Dashboard ไปแล้ว (ดูคอมเมนต์ที่ HTML) เลยเอา listener
   // นี้ออกด้วย ไม่งั้น getElementById('btn-toggle-dash-details') จะคืน null แล้ว throw error
   // ตอน initApp ทุกครั้ง
+  // "อยากปรับให้ น่าสนใจ น่าใช้เว็บ" — ช่องค้นหากลาง (ดู GlobalSearch module ด้านบน)
+  (function wireGlobalSearch(){
+    const input = document.getElementById('global-search-input');
+    const panel = document.getElementById('global-search-results');
+    if(!input || !panel) return;
+    input.addEventListener('input', ()=> GlobalSearch.render(input.value));
+    input.addEventListener('focus', ()=> { if(input.value.trim()) GlobalSearch.render(input.value); });
+    input.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape'){ input.value = ''; panel.style.display = 'none'; panel.innerHTML = ''; input.blur(); }
+    });
+    // mousedown (not click) fires before the input's blur hides the panel, so the
+    // click on a result actually registers instead of the panel disappearing first
+    panel.addEventListener('mousedown', (e)=>{
+      const item = e.target.closest('.gsr-item');
+      if(!item) return;
+      e.preventDefault();
+      GlobalSearch.select(item.dataset.kind, item.dataset.id);
+    });
+    input.addEventListener('blur', ()=> { setTimeout(()=>{ panel.style.display = 'none'; }, 150); });
+  })();
+  // "อยากปรับให้ น่าสนใจ น่าใช้เว็บ" — เตือนก่อนปิด/รีเฟรชแท็บถ้ากรอกฟอร์มเอกสารค้างไว้ยัง
+  // ไม่ได้กด "บันทึก" (กันงานหายเงียบๆ) — ใช้ event delegation บน .editor-main เพราะ
+  // renderItemsEditor()/renderPayments() re-render DOM รายการสินค้า/การชำระเงินใหม่บ่อยๆ
+  // ผูก listener ทีละ input ตรงๆ จะหลุดหายไปพร้อมกับ DOM เดิมที่ถูกแทนที่
+  document.querySelector('#view-editor .editor-main').addEventListener('input', ()=>{ UI.editorDirty = true; });
+  document.querySelector('#view-editor .editor-main').addEventListener('change', ()=>{ UI.editorDirty = true; });
+  window.addEventListener('beforeunload', (e)=>{
+    if(UI.currentView === 'editor' && UI.editorDirty){
+      e.preventDefault();
+      e.returnValue = ''; // ข้อความเองกำหนดไม่ได้ในเบราว์เซอร์สมัยใหม่ แต่ยังคงเด้ง dialog เตือนไว้
+      return '';
+    }
+  });
   document.getElementById('btn-notif-bell').addEventListener('click', (e)=>{
     e.stopPropagation();
     Notifications.toggle();
@@ -13700,6 +14014,10 @@ function wireEvents(){
   document.getElementById('btn-save-doc').addEventListener('click', Editor.save);
   document.getElementById('btn-print-doc').addEventListener('click', ExportMod.print);
   document.getElementById('btn-save-pdf-computer').addEventListener('click', ExportMod.saveDocPdfToComputer);
+  // "คือ อยากให้มี 2 vision ทั้ง THA เเละ Eng" — ปุ่มเวอร์ชันอังกฤษ ส่ง lang='en' explicit
+  // (ต่างจากปุ่มไทยด้านบนที่ปล่อยให้ event object หลุดเข้ามาเป็น arg แรกแต่เช็ค === 'en' ไม่ตรงอยู่แล้ว)
+  document.getElementById('btn-print-doc-en').addEventListener('click', ()=> ExportMod.print('en'));
+  document.getElementById('btn-save-pdf-computer-en').addEventListener('click', ()=> ExportMod.saveDocPdfToComputer('en'));
   // "Convert to Invoice" / "Export Excel (.xls)" / "Export CSV" buttons were removed
   // from the Editor toolbar per request (kept only บันทึก + Print/Export PDF, moved
   // under the approval-workflow card) — that functionality is still reachable from the

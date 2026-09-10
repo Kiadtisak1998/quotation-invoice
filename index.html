@@ -1117,6 +1117,9 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
 /* "อยากให้เห็นยอด ใบเสนอราคา/ใบแจ้งหนี้ ตามบริษัทลูกค้าด้วยอะครับ เเละก็รวมด้วย" — แถวรวมท้าย
    ตาราง "สรุปยอดแยกตามลูกค้า" บน Dashboard ให้ตัวหนา + เส้นคั่นด้านบน แยกจากแถวข้อมูลปกติชัดๆ. */
 .dash-customer-summary-total-row td{font-weight:700;border-top:2px solid var(--gray-300);}
+/* "แยกอนุมัติลูกค้า" — หัวข้อคั่นกลุ่มลูกค้าในตารางคิวรออนุมัติ (ทั้ง actionSection และ
+   historySection ใน Render.approvalsView()) ให้เด่นแยกจากแถวเอกสารปกติชัดเจน. */
+.appr-group-header td{background:rgba(255,255,255,0.05);font-weight:700;padding:8px 10px;border-top:1px solid var(--gray-300);border-bottom:1px solid var(--gray-200);}
 .type-hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:18px;}
 @media (max-width:1000px){.type-hero-grid{grid-template-columns:1fr;}}
 .type-hero-card{position:relative;border-radius:18px;padding:22px 24px;overflow:hidden;box-shadow:var(--shadow-md);border:1px solid var(--gray-200);}
@@ -3014,6 +3017,18 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
           <div class="field-hint" style="margin-bottom:14px;">
             แสดงเฉพาะเอกสารที่ถึงคิวของ Role คุณ — อนุมัติ/ปฏิเสธได้จากแถวโดยตรง หรือกด "เปิด" เพื่อดูเอกสารเต็มก่อนตัดสินใจ
           </div>
+          <!-- "อยากให้รายการอนุมัติ แยก บ.กันอย่างชัดเจน เวลา ผู้มีอำนาจอนุมัติเข้ามาจะได้กดถูกตาม
+               บริษัทที่ตัวเองอนุมัติได้" — คิวรออนุมัตินี้ผูกกับบริษัทที่กำลังเลือกอยู่เหมือนหน้าอื่นๆ
+               อยู่แล้ว (DB.documents ถูกโหลดมาแค่บริษัทเดียว) แต่หน้านี้ไม่เคยมีอะไรบอกเลยว่ากำลังดู
+               คิวของบริษัทไหนอยู่ — เพิ่มแถบเดียวกับที่ทำไว้บน Dashboard: ผู้อนุมัติที่ถูกจำกัดสิทธิ์ไว้
+               บริษัทเดียว (เช่น hof/exe/cbs) จะเห็นชื่อบริษัทตัวเองโชว์ชัดเจน (กล่อง disable กดสลับไม่
+               ได้ ตัดปัญหา "กดผิดบริษัท" ไปเลยเพราะไม่มีบริษัทอื่นให้เลือก) ส่วน Admin/คนที่มีหลายบริษัท
+               จะสลับดูคิวของแต่ละบริษัทได้จากตรงนี้ — ดู Render.approvalsView() ส่วน
+               renderApprovalsCompanySelect(). -->
+          <div class="dash-company-select-bar" id="approvals-company-select-bar" style="display:none;">
+            <label for="approvals-company-select">📍 คิวรออนุมัติของบริษัท</label>
+            <select id="approvals-company-select" aria-label="เลือกบริษัทที่จะดูคิวรออนุมัติ"></select>
+          </div>
           <div class="toolbar no-print">
             <input type="text" id="approvals-search" placeholder="ค้นหาเลขที่ / ชื่อลูกค้า...">
             <select id="approvals-filter-type">
@@ -3745,6 +3760,30 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
     <div class="modal-foot">
       <button class="btn" data-close>ยกเลิก</button>
       <button class="btn btn-primary" id="btn-user-companies-save">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- "แยกอนุมัติลูกค้า" — Restrict-customers-per-user (Admin > Users) — sets which
+     customers one specific user may see/approve documents for
+     (profiles.allowed_customer_ids), via Auth.setUserCustomers(). ต่างจาก modal
+     บริษัทด้านบนตรงที่มี checkbox "ไม่จำกัด" แยกต่างหาก เพราะ default ของฟีเจอร์นี้ (ไม่เคยตั้งค่า
+     เลย) ต้องแปลว่า "ไม่จำกัด" ไม่ใช่ "ไม่มีสิทธิ์เลย" (ดู Auth.canApproveCustomer) — Admin
+     ต้องเอาติ๊ก "ไม่จำกัด" ออกก่อน ถึงจะเริ่มเลือกลูกค้าที่อนุญาตได้จริง. -->
+<div class="modal-backdrop no-print" id="modal-user-customers">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-head"><h3>จำกัดลูกค้าที่อนุมัติได้</h3><button class="modal-close" data-close aria-label="ปิดหน้าต่าง">✕</button></div>
+    <div class="modal-body">
+      <p class="field-hint" id="user-customers-label" style="margin-bottom:12px;"></p>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:12px;">
+        <input type="checkbox" id="user-customers-unrestricted"> ไม่จำกัด (เห็น/อนุมัติได้ทุกลูกค้า)
+      </label>
+      <div id="user-customers-checklist" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;"></div>
+      <div class="field-hint" style="margin-top:12px;">Role "Admin" อนุมัติได้ทุกลูกค้าเสมอ ไม่ว่าจะติ๊กอะไรไว้ที่นี่</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close>ยกเลิก</button>
+      <button class="btn btn-primary" id="btn-user-customers-save">💾 บันทึก</button>
     </div>
   </div>
 </div>
@@ -4973,6 +5012,32 @@ const Auth = {
     if(Auth.isAdmin()) return true;
     const allowed = Auth.profile && Auth.profile.allowed_company_ids;
     return Array.isArray(allowed) && allowed.includes(companyId);
+  },
+
+  /** "แยกอนุมัติลูกค้า" — จำกัดสิทธิ์ให้ user คนหนึ่งอนุมัติ/เห็นเอกสารได้เฉพาะบางลูกค้า (customer)
+   *  เท่านั้น ซ้อนอยู่ "ใต้" การจำกัดสิทธิ์ระดับบริษัท (allowed_company_ids) อีกชั้นหนึ่ง — ต่างจาก
+   *  allowed_company_ids ตรงที่ NULL/ไม่ได้ตั้งค่าเลย = "ไม่จำกัด" (เห็น/อนุมัติได้ทุกลูกค้า) ไม่ใช่
+   *  "ไม่มีสิทธิ์เลย" เพราะฟีเจอร์นี้เป็นของใหม่ที่เพิ่มเข้ามาทีหลัง ต้องไม่ทำให้ user เดิมที่ Admin
+   *  ยังไม่เคยตั้งค่าอะไรเลยกลายเป็นอนุมัติอะไรไม่ได้เลยไปโดยไม่ตั้งใจ (fail-open ต่างจาก
+   *  allowed_company_ids ที่ fail-closed) — Admin ต้องตั้งค่าที่ Admin > Users > "👤 ลูกค้า" เพื่อ
+   *  เปิดใช้การจำกัดนี้จริงๆ กับ user คนนั้น บังคับใช้แค่ฝั่งแอป (เหมือนระบบสิทธิ์ Role/เมนู/การ
+   *  กระทำที่มีอยู่แล้ว) ไม่ได้ล็อกด้วย RLS เพิ่มเติมในรอบนี้. */
+  canApproveCustomer(customerId){
+    if(Auth.isAdmin()) return true;
+    const allowed = Auth.profile && Auth.profile.allowed_customer_ids;
+    if(!Array.isArray(allowed)) return true; // ไม่เคยตั้งค่า = ไม่จำกัด
+    return allowed.includes(customerId);
+  },
+
+  /** Admin-only: sets exactly which customers a user may see/approve documents for.
+   *  Pass `null` to clear the restriction back to "ไม่จำกัด" (see canApproveCustomer above),
+   *  or an array (possibly empty, to intentionally block every customer) to restrict. */
+  async setUserCustomers(userId, customerIds){
+    if(!Cloud.isEnabled()) return false;
+    const { error } = await Cloud.client.from('profiles')
+      .update({ allowed_customer_ids: customerIds, updated_at: new Date().toISOString() }).eq('id', userId);
+    if(error){ console.error('Auth.setUserCustomers failed', error); return false; }
+    return true;
   },
 
   /** Admin-only: creates a brand-new login account (username+password) directly
@@ -6287,6 +6352,9 @@ const Documents = {
     if(!Auth.canApproveAuth()) throw new Error('คุณไม่มีสิทธิ์อนุมัติขั้นตอนนี้ (ต้องเป็นผู้มีอำนาจอนุมัติ หรือ Admin)');
     const d = Documents.find(id);
     if(!d) throw new Error('ไม่พบเอกสาร');
+    // "แยกอนุมัติลูกค้า" — จำกัดสิทธิ์เพิ่มอีกชั้นนอกจากบริษัท ว่าอนุมัติได้เฉพาะบางลูกค้าเท่านั้น
+    // (Auth.canApproveCustomer คืน true เสมอถ้า Admin ยังไม่เคยตั้งค่าอะไรไว้ให้ user คนนี้).
+    if(!Auth.canApproveCustomer(d.customerId)) throw new Error('คุณไม่มีสิทธิ์อนุมัติเอกสารของลูกค้ารายนี้');
     // ผู้มีอำนาจอนุมัติ has power to approve Quotations only — Invoices are meant to
     // come into being already-approved (Documents.autoConvertOnAcctApproval), so one
     // sitting here unapproved is an edge case only Admin should resolve.
@@ -6309,6 +6377,8 @@ const Documents = {
     if(!Auth.canApproveAcct()) throw new Error('คุณไม่มีสิทธิ์อนุมัติขั้นตอนนี้ (ต้องเป็นบัญชี หรือ Admin)');
     const d = Documents.find(id);
     if(!d) throw new Error('ไม่พบเอกสาร');
+    // "แยกอนุมัติลูกค้า" — เหมือน quickApproveAuth() ด้านบน
+    if(!Auth.canApproveCustomer(d.customerId)) throw new Error('คุณไม่มีสิทธิ์อนุมัติเอกสารของลูกค้ารายนี้');
     // Same scoping as quickApproveAuth() above — step 3 (approve+bill) only applies
     // to Quotations; it's what triggers autoConvertOnAcctApproval() to create the
     // actual Invoice. An Invoice itself should never need this step.
@@ -7312,6 +7382,21 @@ const Render = {
   approvalsView(){
     const panel = document.getElementById('approvals-panel');
     if(!panel) return;
+    // "อยากให้รายการอนุมัติ แยก บ.กันอย่างชัดเจน" — เหมือน renderDashboardCompanySelect() บน
+    // Dashboard เป๊ะๆ แค่ผูกกับ id ของหน้านี้แทน — โชว์ให้ทุกคนเห็นเสมอว่ากำลังดูคิวของบริษัทไหน
+    // อยู่ (disable ถ้ามีสิทธิ์บริษัทเดียว เพราะไม่มีอะไรให้สลับ).
+    (function renderApprovalsCompanySelect(){
+      const bar = document.getElementById('approvals-company-select-bar');
+      const sel = document.getElementById('approvals-company-select');
+      if(!bar || !sel) return;
+      const options = Workspace.allowedList();
+      bar.style.display = '';
+      sel.disabled = options.length <= 1;
+      const currentId = Workspace.getCurrentId();
+      sel.innerHTML = options.map(c=>
+        `<option value="${c.id}" ${c.id === currentId ? 'selected' : ''}>${Utils.escapeHtml(c.name)}</option>`
+      ).join('');
+    })();
     if(!UI.approvalsTab) UI.approvalsTab = 'auth';
     const searchEl = document.getElementById('approvals-search');
     const typeEl = document.getElementById('approvals-filter-type');
@@ -7332,19 +7417,24 @@ const Render = {
     // approve+bill action only ever apply to Quotations; Invoices are meant to be
     // born already-approved via Documents.autoConvertOnAcctApproval().
     const scopeQt = (d)=> d.type==='QT' || Auth.isAdmin();
-    const pendingAuth = docs.filter(d=> d.status === 'PendingApproval' && scopeQt(d))
+    // "แยกอนุมัติลูกค้า" — ตัดเอกสารของลูกค้าที่ user คนนี้ไม่มีสิทธิ์อนุมัติออกจากทุกแท็บตั้งแต่ต้น
+    // (Auth.canApproveCustomer คืน true เสมอถ้า Admin ยังไม่เคยตั้งค่าจำกัดสิทธิ์ลูกค้าไว้ให้ user
+    // คนนี้ — ดูคอมเมนต์ที่ Auth.canApproveCustomer) เพื่อไม่ให้เห็นแถวที่กดอนุมัติไปก็จะโดน
+    // Documents.quickApproveAuth/Acct ปฏิเสธอยู่ดี.
+    const scopeCustomer = (d)=> Auth.canApproveCustomer(d.customerId);
+    const pendingAuth = docs.filter(d=> d.status === 'PendingApproval' && scopeQt(d) && scopeCustomer(d))
       .sort((a,b)=> (a.submittedAt||a.createdAt||0) - (b.submittedAt||b.createdAt||0));
-    const pendingAcct = docs.filter(d=> d.status === 'Approved' && d.workflow && d.workflow.authApproved && scopeQt(d))
+    const pendingAcct = docs.filter(d=> d.status === 'Approved' && d.workflow && d.workflow.authApproved && scopeQt(d) && scopeCustomer(d))
       .sort((a,b)=> (a.workflow.authApprovedAt||0) - (b.workflow.authApprovedAt||0));
     // "อนุมัติแล้ว" — scoped to QT only (the Invoice auto-created from it inherits the
     // same completed workflow flags, so including both types here would show what's
     // really one transaction as two rows; the resulting Invoice is one click away
     // via "เปิด" -> its convertedToId, or the Invoices list).
-    const approved = docs.filter(d=> d.type==='QT' && d.workflow && d.workflow.authApproved && d.workflow.acctApproved)
+    const approved = docs.filter(d=> d.type==='QT' && d.workflow && d.workflow.authApproved && d.workflow.acctApproved && scopeCustomer(d))
       .sort((a,b)=> (b.workflow.acctApprovedAt||0) - (a.workflow.acctApprovedAt||0));
-    const returned = docs.filter(d=> d.status === 'ReturnedForRevision')
+    const returned = docs.filter(d=> d.status === 'ReturnedForRevision' && scopeCustomer(d))
       .sort((a,b)=> (b.returnedAt||0) - (a.returnedAt||0));
-    const denied = docs.filter(d=> d.status === 'Denied')
+    const denied = docs.filter(d=> d.status === 'Denied' && scopeCustomer(d))
       .sort((a,b)=> (b.deniedAt||0) - (a.deniedAt||0));
 
     // Dropping rows that no longer match the current search/filter shouldn't leave
@@ -7377,7 +7467,18 @@ const Render = {
     const actionSection = (opts)=>{
       const { key, list, since, approveLabel } = opts;
       const selected = UI.approvalsSelected[key];
-      const rows = list.length ? list.map(d=>{
+      // "แยกอนุมัติลูกค้า" — จัดกลุ่มแถวตามลูกค้าให้อยู่ติดกันเป็นก้อนๆ พร้อมหัวข้อคั่นบอกชื่อ
+      // ลูกค้า + จำนวนรายการ แทนที่จะเป็นตารางเดียวรวมทุกลูกค้าปนกันเหมือนเดิม — ไม่ได้เรียงชื่อ
+      // ลูกค้าใหม่ (ยังคงลำดับเดิมของ list ที่เรียงตามเวลารอคิวไว้อยู่แล้ว) แค่จัดกลุ่มแถวที่เป็น
+      // ลูกค้าเดียวกันให้ต่อเนื่องกัน.
+      const groups = [];
+      const groupIndexByName = {};
+      list.forEach(d=>{
+        const name = (d.customer && d.customer.name) || '(ไม่ระบุลูกค้า)';
+        if(!(name in groupIndexByName)){ groupIndexByName[name] = groups.length; groups.push({ name, docs: [] }); }
+        groups[groupIndexByName[name]].docs.push(d);
+      });
+      const rowHtml = (d)=>{
         const t = Calc.computeTotals(d);
         const sinceMs = since(d);
         const checked = selected.has(d.id) ? 'checked' : '';
@@ -7397,7 +7498,11 @@ const Render = {
             <button class="btn btn-sm" onclick="Editor.open('${d.id}')">เปิด</button>
           </td>
         </tr>`;
-      }).join('') : `<tr><td colspan="8" class="empty-state">🎉 ไม่มีรายการรอคิวนี้</td></tr>`;
+      };
+      const rows = list.length
+        ? groups.map(g=> `<tr class="appr-group-header"><td colspan="8">👤 ${Utils.escapeHtml(g.name)} <span class="muted">(${g.docs.length} รายการ)</span></td></tr>` + g.docs.map(rowHtml).join(''))
+                .join('')
+        : `<tr><td colspan="8" class="empty-state">🎉 ไม่มีรายการรอคิวนี้</td></tr>`;
 
       const selCount = selected.size;
       const allChecked = list.length > 0 && list.every(d=> selected.has(d.id));
@@ -7420,7 +7525,16 @@ const Render = {
     const historySection = (list, opts)=>{
       opts = opts || {};
       if(!list.length) return `<div class="empty-state">ไม่มีรายการ</div>`;
-      const rows = list.map(d=>{
+      // "แยกอนุมัติลูกค้า" — จัดกลุ่มตามลูกค้าเหมือน actionSection() ด้านบน เพื่อความสอดคล้องกัน
+      // ทั้ง 5 แท็บของหน้านี้.
+      const groups = [];
+      const groupIndexByName = {};
+      list.forEach(d=>{
+        const name = (d.customer && d.customer.name) || '(ไม่ระบุลูกค้า)';
+        if(!(name in groupIndexByName)){ groupIndexByName[name] = groups.length; groups.push({ name, docs: [] }); }
+        groups[groupIndexByName[name]].docs.push(d);
+      });
+      const rowHtml = (d)=>{
         const t = Calc.computeTotals(d);
         const reasonHtml = opts.reasonField
           ? `<div style="font-size:12px;color:var(--gray-600);margin-top:2px;font-weight:400;">${Utils.escapeHtml(d[opts.reasonField]||'')} — ${Utils.escapeHtml(d[opts.byField]||'-')} ${stampDateShort(d[opts.atField])}</div>`
@@ -7435,7 +7549,9 @@ const Render = {
           <td class="text-right">${Utils.formatCurrency(t.netPayable)}</td>
           <td style="white-space:nowrap;">${pdfBtnFor(d)} <button class="btn btn-sm" onclick="Editor.open('${d.id}')">เปิด</button> ${reopenBtn}</td>
         </tr>`;
-      }).join('');
+      };
+      const rows = groups.map(g=> `<tr class="appr-group-header"><td colspan="6">👤 ${Utils.escapeHtml(g.name)} <span class="muted">(${g.docs.length} รายการ)</span></td></tr>` + g.docs.map(rowHtml).join(''))
+                          .join('');
       return `<div style="overflow-x:auto;"><table class="data-table">
         <thead><tr><th>เลขที่</th><th>ประเภท</th><th>ลูกค้า</th><th>วันที่ออกเอกสาร</th><th class="text-right">ยอดสุทธิ</th><th>จัดการ</th></tr></thead>
         <tbody>${rows}</tbody>
@@ -7509,6 +7625,7 @@ const Render = {
         <td>
           <button class="btn btn-sm" onclick="Modals.openResetPassword('${p.id}')">🔑 รีเซ็ตรหัสผ่าน</button>
           <button class="btn btn-sm" onclick="Modals.openUserCompanies('${p.id}')">🏢 บริษัท</button>
+          <button class="btn btn-sm" onclick="Modals.openUserCustomers('${p.id}')">👤 ลูกค้า</button>
         </td>
       </tr>
     `).join('');
@@ -9280,6 +9397,9 @@ const Editor = {
     if(!UI.editingDocId){ Utils.toast('กรุณาบันทึกเอกสารก่อน', 'err'); return; }
     if(!Auth.canApproveAuth()){ Utils.toast('คุณไม่มีสิทธิ์อนุมัติขั้นตอนนี้ (ต้องเป็นผู้มีอำนาจอนุมัติ หรือ Admin)', 'err'); return; }
     const d = UI.editingDraft;
+    // "แยกอนุมัติลูกค้า" — เหมือน Documents.quickApproveAuth() (คิวรออนุมัติ) แค่เป็นเส้นทางกดอนุมัติ
+    // จากในหน้าแก้ไขเอกสารโดยตรงแทน ต้องเช็คให้ตรงกันทั้ง 2 เส้นทาง.
+    if(!Auth.canApproveCustomer(d.customerId)){ Utils.toast('คุณไม่มีสิทธิ์อนุมัติเอกสารของลูกค้ารายนี้', 'err'); return; }
     if(d.type !== 'QT' && !Auth.isAdmin()){ Utils.toast('ผู้มีอำนาจอนุมัติมีสิทธิ์อนุมัติเฉพาะใบเสนอราคาเท่านั้น', 'err'); return; }
     if(d.type === 'QT' && d.status !== 'PendingApproval' && !Auth.isAdmin()){ Utils.toast('เอกสารนี้ต้องถูกส่งอนุมัติก่อน (กด "ส่งอนุมัติ")', 'err'); return; }
     d.workflow.authApproved = true;
@@ -9314,6 +9434,8 @@ const Editor = {
     if(!UI.editingDocId){ Utils.toast('กรุณาบันทึกเอกสารก่อน', 'err'); return; }
     if(!Auth.canApproveAcct()){ Utils.toast('คุณไม่มีสิทธิ์อนุมัติขั้นตอนนี้ (ต้องเป็นบัญชี หรือ Admin)', 'err'); return; }
     const d = UI.editingDraft;
+    // "แยกอนุมัติลูกค้า" — เหมือน approveAuth() ด้านบน
+    if(!Auth.canApproveCustomer(d.customerId)){ Utils.toast('คุณไม่มีสิทธิ์อนุมัติเอกสารของลูกค้ารายนี้', 'err'); return; }
     if(d.type !== 'QT' && !Auth.isAdmin()){ Utils.toast('ขั้นตอนนี้ใช้ได้เฉพาะใบเสนอราคาเท่านั้น', 'err'); return; }
     if(d.type === 'QT' && d.status !== 'Approved' && !Auth.isAdmin()){ Utils.toast('เอกสารนี้ยังไม่ผ่านการอนุมัติของผู้มีอำนาจอนุมัติ', 'err'); return; }
     if(!d.workflow.authApproved){ Utils.toast('ต้องผ่านการอนุมัติของผู้มีอำนาจก่อน', 'err'); return; }
@@ -9835,6 +9957,31 @@ const Modals = {
       </label>
     `).join('') || '<div class="muted">ยังไม่มีบริษัทในระบบ</div>';
     Modals.open('modal-user-companies');
+  },
+
+  /** "แยกอนุมัติลูกค้า" — เหมือน openUserCompanies() ด้านบนเป๊ะๆ แค่ผูกกับ
+   *  allowed_customer_ids/DB.customers (ลูกค้าเป็นรายการที่ใช้ร่วมกันทุกบริษัท ไม่ได้แยกตาม
+   *  Workspace เหมือนบริษัท — ดู SHARED_CUSTOMERS_KEY) แทน — checkbox "ไม่จำกัด" ด้านบน
+   *  checklist สะท้อนค่า NULL/ไม่เคยตั้งค่าเลย (unrestricted, ค่า default ของทุก user จนกว่า
+   *  Admin จะมาจำกัดจริง — ดู Auth.canApproveCustomer). */
+  openUserCustomers(userId){
+    const p = (UI._adminProfilesCache || []).find(x=> x.id === userId);
+    if(!p){ Utils.toast('ไม่พบผู้ใช้งานนี้ — ลองรีเฟรชรายชื่อแล้วลองใหม่', 'err'); return; }
+    Modals._userCustomersTarget = p;
+    document.getElementById('user-customers-label').textContent =
+      `กำหนดลูกค้าที่อนุมัติได้สำหรับ: ${p.display_name || p.username} (username: ${p.username || '-'})`;
+    const isUnrestricted = !Array.isArray(p.allowed_customer_ids);
+    const allowed = new Set(isUnrestricted ? [] : p.allowed_customer_ids);
+    const unrestrictedCb = document.getElementById('user-customers-unrestricted');
+    unrestrictedCb.checked = isUnrestricted;
+    const list = document.getElementById('user-customers-checklist');
+    list.innerHTML = (DB.customers||[]).map(c=> `
+      <label style="display:flex;align-items:center;gap:8px;font-weight:500;">
+        <input type="checkbox" class="user-customer-check" value="${c.id}" ${allowed.has(c.id) ? 'checked' : ''}>
+        ${Utils.escapeHtml(c.name)}
+      </label>
+    `).join('') || '<div class="muted">ยังไม่มีลูกค้าในระบบ</div>';
+    Modals.open('modal-user-customers');
   },
 
   /** Simple random password generator — mixes upper/lower/digits, long enough to
@@ -11067,6 +11214,34 @@ const Actions = {
         Render.adminUsersView();
       }else{
         Utils.toast('บันทึกสิทธิ์บริษัทไม่สำเร็จ', 'err');
+      }
+    }finally{
+      if(btn){ btn.disabled = false; btn.textContent = '💾 บันทึก'; }
+    }
+  },
+
+  /** "แยกอนุมัติลูกค้า" — เหมือน saveUserCompanies() ด้านบน แค่ต่างตรงเช็ค checkbox
+   *  "ไม่จำกัด" ก่อน: ถ้าติ๊กไว้ ส่ง null (= unrestricted ทั้งหมด ดู Auth.canApproveCustomer)
+   *  แทนอาร์เรย์ที่เลือกไว้ — ไม่ต้องสนใจว่า checklist ติ๊กอะไรไว้บ้างตอนนั้นเลย. */
+  async saveUserCustomers(){
+    const p = Modals._userCustomersTarget;
+    if(!p){ Utils.toast('ไม่พบผู้ใช้งานนี้', 'err'); return; }
+    const unrestricted = document.getElementById('user-customers-unrestricted').checked;
+    const ids = unrestricted ? null : Array.from(document.querySelectorAll('.user-customer-check:checked')).map(el=> el.value);
+    const btn = document.getElementById('btn-user-customers-save');
+    if(btn){ btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; }
+    try{
+      const ok = await Auth.setUserCustomers(p.id, ids);
+      if(ok){
+        Utils.toast('บันทึกสิทธิ์ลูกค้าสำเร็จ', 'ok');
+        ActivityLog.log('กำหนดสิทธิ์ลูกค้าของผู้ใช้ (Admin)', 'Auth', {
+          recordId: p.id, recordName: p.display_name || p.username,
+          note: unrestricted ? '(ไม่จำกัด — เห็น/อนุมัติได้ทุกลูกค้า)' : (ids.length ? ids.join(', ') : '(ไม่มีลูกค้าที่อนุมัติได้เลย)')
+        });
+        Modals.close('modal-user-customers');
+        Render.adminUsersView();
+      }else{
+        Utils.toast('บันทึกสิทธิ์ลูกค้าไม่สำเร็จ', 'err');
       }
     }finally{
       if(btn){ btn.disabled = false; btn.textContent = '💾 บันทึก'; }
@@ -13618,6 +13793,7 @@ function wireEvents(){
     else if(btn.dataset.action === 'delete-company') Actions.deleteCompany(id, name);
   });
   document.getElementById('btn-user-companies-save').addEventListener('click', Actions.saveUserCompanies);
+  document.getElementById('btn-user-customers-save').addEventListener('click', Actions.saveUserCustomers);
 
   // ---- Company (Workspace) switcher ----
   document.getElementById('company-switcher-select').addEventListener('change', (e)=>{
@@ -13630,6 +13806,14 @@ function wireEvents(){
   const dashCompanySelect = document.getElementById('dashboard-company-select');
   if(dashCompanySelect){
     dashCompanySelect.addEventListener('change', (e)=>{
+      Workspace.switchTo(e.target.value);
+    });
+  }
+  // "อยากให้รายการอนุมัติ แยก บ.กันอย่างชัดเจน" — dropdown เดียวกันบนหน้ารายการรออนุมัติ
+  // (ดู #approvals-company-select-bar ใน HTML + Render.approvalsView()).
+  const approvalsCompanySelect = document.getElementById('approvals-company-select');
+  if(approvalsCompanySelect){
+    approvalsCompanySelect.addEventListener('change', (e)=>{
       Workspace.switchTo(e.target.value);
     });
   }

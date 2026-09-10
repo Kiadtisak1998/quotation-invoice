@@ -2159,8 +2159,10 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
              ที่ — ดู Editor.showCreateIntro() ที่ผูกกับเมนูนี้โดยเฉพาะ ใน wireEvents(). -->
         <div class="card" id="editor-intro" style="display:none;border:1.5px solid var(--blue-accent);background:var(--blue-accent-soft);text-align:center;padding:32px 20px;">
           <div style="font-size:34px;margin-bottom:8px;">👋</div>
-          <div style="font-size:16px;font-weight:700;color:var(--gray-900);margin-bottom:6px;">สร้างใบเสนอราคาใหม่</div>
-          <div style="font-size:13px;color:var(--gray-700);margin-bottom:16px;">กดปุ่มด้านล่างเพื่อเปิดฟอร์มกรอกข้อมูลใบเสนอราคาฉบับใหม่</div>
+          <!-- "ปรับให้หน่อยครับ" — ตัดคำว่า "สร้าง...ใหม่" ที่ซ้ำกับหัวข้อหน้า ("สร้างเอกสารใหม่"
+               บน topbar) และซ้ำกับปุ่มด้านล่างออก ให้เหลือแค่ข้อความสั้นๆ ไม่วนคำซ้ำ -->
+          <div style="font-size:16px;font-weight:700;color:var(--gray-900);margin-bottom:6px;">ใบเสนอราคาของคุณ</div>
+          <div style="font-size:13px;color:var(--gray-700);margin-bottom:16px;">กดปุ่มด้านล่างเพื่อเริ่มกรอกข้อมูล</div>
           <button class="btn btn-primary" onclick="Editor.newDocument('QT')">＋ สร้างใบเสนอราคา</button>
         </div>
 

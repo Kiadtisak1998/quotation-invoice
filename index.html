@@ -14009,8 +14009,18 @@ function wireEvents(){
       closeModalBackdrop(e.target.closest('.modal-backdrop'));
     });
   });
+  // "ต้องกดกากบาทออกเท่านั้น ถึงจะออกจากหน้านั้นๆ ได้" — ผู้ใช้อยากให้ modal เพิ่ม/แก้ไข
+  // Customers/Products/Banks (3 modal ที่ติด data-warn-dirty) ปิดได้ทางปุ่ม X หรือ "ยกเลิก"
+  // ในตัว modal เท่านั้น (ทั้งสองปุ่มยังมี confirm ถ้ามีข้อมูลค้างอยู่ตามเดิม ผ่าน [data-close]
+  // handler ด้านบน) — คลิกพื้นหลังนอกกรอบห้ามปิดอีกต่อไปสำหรับ 3 modal นี้โดยเฉพาะ (กันคลิก
+  // เผลอ/คลิกพลาดหลุดออกไปโดยไม่ตั้งใจ) modal อื่นๆ ในระบบ (ยืนยัน/แจ้งเตือน ฯลฯ ที่ไม่มี
+  // data-warn-dirty) ยังคลิกนอกกรอบปิดได้ตามปกติเหมือนเดิม
   document.querySelectorAll('.modal-backdrop').forEach(bd=>{
-    bd.addEventListener('click', (e)=>{ if(e.target === bd) closeModalBackdrop(bd); });
+    bd.addEventListener('click', (e)=>{
+      if(e.target !== bd) return;
+      if(bd.hasAttribute('data-warn-dirty')) return;
+      closeModalBackdrop(bd);
+    });
   });
   // ผูก input/change แบบ delegation บน document เดียว (ไม่ใช่ทีละ modal) เพราะ
   // modal-body บางส่วน (เช่นรายการสินค้าในเอกสาร) re-render DOM ใหม่บ่อยๆ — ผูกตรงๆ
@@ -14387,7 +14397,16 @@ function wireEvents(){
       // ตรง closeModalBackdrop ด้านบน) ผลคือปุ่ม X/ยกเลิก/คลิกพื้นหลังของ modal "เพิ่มลูกค้า/สินค้า/
       // บัญชีธนาคาร" ถามยืนยันก่อนถูกต้องแล้ว แต่กด Esc ยังหลุดปิดทันทีไม่ถามเลย ข้อมูลที่กรอกค้างหาย
       // ไปเงียบๆ — เปลี่ยนมาเรียก closeModalBackdrop() ทีละอันแทน ให้พฤติกรรมตรงกับทุกทางออกอื่น
-      document.querySelectorAll('.modal-backdrop.open').forEach(bd=> closeModalBackdrop(bd));
+      //
+      // "ต้องกดกากบาทออกเท่านั้น ถึงจะออกจากหน้านั้นๆ ได้" — ต่อยอดอีกขั้น: 3 modal ที่ติด
+      // data-warn-dirty (เพิ่ม/แก้ไข Customers/Products/Banks) ห้ามกด Esc ปิดได้อีกต่อไปเลย
+      // (ไม่ใช่แค่ถามยืนยัน แต่ไม่ทำอะไรเลย) ต้องปิดผ่านปุ่ม X หรือ "ยกเลิก" ในตัว modal เท่านั้น —
+      // เหมือนกับที่คลิกพื้นหลังนอกกรอบก็ถูกปิดกั้นไปแล้วด้านบน (ดู [data-warn-dirty] check ใน
+      // backdrop click handler) modal อื่นๆ ที่ไม่ติด data-warn-dirty ยังกด Esc ปิดได้ตามปกติ
+      document.querySelectorAll('.modal-backdrop.open').forEach(bd=>{
+        if(bd.hasAttribute('data-warn-dirty')) return;
+        closeModalBackdrop(bd);
+      });
     }
   });
 }

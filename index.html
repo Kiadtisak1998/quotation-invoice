@@ -3376,7 +3376,12 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
   </div>
 </div>
 
-<div class="modal-backdrop no-print" id="modal-customer-edit">
+<!-- "ตอน add ข้อมูลต่างๆ ก็เหมือนกัน มันหลุดหายเลย" — Customers/Products/Bank Accounts ก็มี
+     ปัญหาเดียวกับหน้า editor เอกสาร (แก้ไปแล้วด้านบนใน Render.showView()): กด X / กด
+     "ยกเลิก" / คลิกนอกกรอบ modal ตอนกรอกฟอร์มค้างไว้ ข้อมูลหายทันทีไม่มีเตือน — เติม
+     data-warn-dirty ให้ 3 modal ที่มีฟอร์มกรอกข้อมูลจริงจัง (ไม่ใส่ modal ยืนยัน/แจ้งเตือน
+     อื่นๆ ที่ไม่มีอะไรให้หาย) แล้วดักที่ [data-close]/backdrop-click wiring ใน wireEvents() -->
+<div class="modal-backdrop no-print" id="modal-customer-edit" data-warn-dirty>
   <div class="modal modal-lg">
     <div class="modal-head"><h3 id="modal-customer-edit-title">เพิ่มลูกค้า</h3><button class="modal-close" data-close aria-label="ปิดหน้าต่าง">✕</button></div>
     <div class="modal-body">
@@ -3402,7 +3407,7 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
   </div>
 </div>
 
-<div class="modal-backdrop no-print" id="modal-product-edit">
+<div class="modal-backdrop no-print" id="modal-product-edit" data-warn-dirty>
   <div class="modal">
     <div class="modal-head"><h3 id="modal-product-edit-title">เพิ่มสินค้า/บริการ</h3><button class="modal-close" data-close aria-label="ปิดหน้าต่าง">✕</button></div>
     <div class="modal-body">
@@ -3423,7 +3428,7 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
   </div>
 </div>
 
-<div class="modal-backdrop no-print" id="modal-bank-edit">
+<div class="modal-backdrop no-print" id="modal-bank-edit" data-warn-dirty>
   <div class="modal">
     <div class="modal-head"><h3 id="modal-bank-edit-title">เพิ่มบัญชีธนาคาร</h3><button class="modal-close" data-close aria-label="ปิดหน้าต่าง">✕</button></div>
     <div class="modal-body">
@@ -3432,6 +3437,10 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
       <div class="field"><label>เลขบัญชี</label><input type="text" id="mbe-account-no"></div>
       <div class="field"><label>ชื่อบัญชี</label><input type="text" id="mbe-account-name"></div>
       <div class="field"><label>สาขา</label><input type="text" id="mbe-branch"></div>
+      <!-- "เอา Remarks มาใส่ ไส้ในตั้งค่าในนี้" — เพิ่มช่องข้อมูลเพิ่มเติม/หมายเหตุอิสระให้บัญชี
+           ธนาคารแต่ละบัญชี (เช่นระบุสกุลเงินที่บัญชีนี้รับ, SWIFT/IBAN สำหรับโอนจากต่างประเทศ,
+           หรือหมายเหตุการใช้งานอื่นๆ) เก็บเป็น free text ไม่บังคับกรอก */
+      <div class="field"><label>หมายเหตุ / Remarks</label><textarea id="mbe-remarks" rows="2" placeholder="เช่น SWIFT/IBAN, สกุลเงินที่รับ, หมายเหตุอื่นๆ"></textarea></div>
       <div class="field"><label>QR Payment / PromptPay QR (รูป)</label><input type="file" id="mbe-qr-file" accept="image/*"></div>
     </div>
     <div class="modal-foot"><button class="btn" data-close>ยกเลิก</button><button class="btn btn-primary" id="btn-save-bank">บันทึก</button></div>
@@ -4256,6 +4265,13 @@ const UI = {
   // beforeunload listener ท้าย wireEvents() + จุดตั้ง/เคลียร์ flag นี้ใน Editor.populateForm()
   // (เริ่มฟอร์มใหม่ = ไม่ dirty) และ Editor.save() (บันทึกสำเร็จ = ไม่ dirty อีกต่อไป)
   editorDirty: false,
+  // "ตอน add ข้อมูลต่างๆ ก็เหมือนกัน มันหลุดหายเลย" — same problem as editorDirty above
+  // but for the Customer/Product/Bank Account "เพิ่ม/แก้ไข" modals: same generic
+  // idea (dirty-tracking flag + guard before discarding), just scoped to whichever
+  // modal[data-warn-dirty] is currently open instead of the editor view. Set true on
+  // any input/change inside one of those modals (wireEvents()), cleared back to
+  // false by each modal's own edit*()/save*FromModal() open/success paths.
+  modalDirty: false,
 };
 
 /* ============================================================================
@@ -6518,9 +6534,42 @@ const Documents = {
     if(!doc.docNumber || !doc.docNumber.trim()){
       throw new Error('กรุณาระบุเลขที่เอกสาร');
     }
-    if(doc.customer && doc.customer.taxId && !Utils.isValidThaiTaxId(doc.customer.taxId)){
-      throw new Error('เลขประจำตัวผู้เสียภาษีของลูกค้าไม่ถูกต้อง (ต้องเป็นตัวเลข 13 หลักที่ถูกต้อง)');
+    // "คือมีวางบิลต่างประเทศ เลขประจำตัวผู้เสียภาษี ไม่จำเป็นต้องมี คืออนุญาติให้อนุมัติได้เลย
+    // ไม่จำเป็นต้องกรอก" — เดิมบล็อกการบันทึก/ส่งอนุมัติถ้าเลขภาษีที่กรอกไม่ผ่าน checksum ของเลข
+    // ผู้เสียภาษีไทย 13 หลัก ซึ่งใช้ไม่ได้กับลูกค้าต่างประเทศที่มีเลขประจำตัวผู้เสียภาษีรูปแบบอื่น
+    // (เช่น EIN/VAT number) เอาการบังคับ validate ออก ปล่อยให้ช่องนี้เป็น free text ล้วน กรอกหรือ
+    // ไม่กรอกก็บันทึก/ส่งอนุมัติได้ตามปกติ (Utils.isValidThaiTaxId ยังเก็บไว้เผื่อใช้ที่อื่นในอนาคต
+    // แบบ soft-hint เท่านั้น ไม่ใช่ hard block)
+    if(doc.id){
+      const existing = Documents.find(doc.id);
+      if(existing) Object.assign(existing, doc, {updatedAt: Date.now()});
+    }else{
+      doc.id = Utils.uid('doc');
+      doc.createdAt = Date.now();
+      doc.updatedAt = Date.now();
+      DB.documents.push(doc);
     }
+    Documents.commitNumber(doc.type, doc.date, doc.docNumber);
+    Storage.save();
+    return doc;
+  },
+
+  /** "ตอนสร้างใบเสนอราคา ถ้าหลุดจากหน้าการสร้าง ให้ Save ไป Draft ไว้เสมอ" — เวอร์ชันบันทึก
+   *  ที่ใช้เฉพาะตอนออกจากหน้า editor แบบไม่ตั้งใจ (ดู Render.showView() guard + beforeunload
+   *  ใน wireEvents()) แทนที่การแค่เตือนแล้วปล่อยให้ข้อมูลหายแบบเดิม — ต่างจาก Documents.save()
+   *  (ปุ่ม "บันทึก" ที่ผู้ใช้กดเอง) ตรงที่ไม่บล็อกด้วย validation ปกติเลย เพราะเป้าหมายตรงนี้คือ
+   *  "ห้ามหายเด็ดขาด" ไม่ใช่บังคับกรอกครบก่อนเก็บ — ถ้ายังไม่มีชื่อลูกค้า (แบบฟอร์มที่เพิ่งเปิดมา
+   *  ยังไม่ได้พิมพ์อะไรเกี่ยวกับลูกค้าเลย) ใส่ placeholder ไปก่อน ผู้ใช้กลับมาแก้ให้ครบและกด
+   *  "บันทึก" จริงทีหลังได้ตามปกติ เอกสารที่ถูก auto-save แบบนี้ยังคงเป็นสถานะ 'Draft' เหมือนเดิม
+   *  (preparer ยังไม่ได้กด "ส่งอนุมัติ") ไม่กระทบขั้นตอนอนุมัติใดๆ */
+  autoSaveDraft(doc){
+    if(!doc) return null;
+    if(!doc.customerId && (!doc.customer || !doc.customer.name || !String(doc.customer.name).trim())){
+      doc.customer = doc.customer || {};
+      doc.customer.name = '(ร่างที่ยังไม่ระบุลูกค้า)';
+    }
+    if(!doc.date) doc.date = Utils.todayISO();
+    if(!doc.docNumber || !doc.docNumber.trim()) doc.docNumber = Documents.generateNumber(doc.type||'QT', doc.date);
     if(doc.id){
       const existing = Documents.find(doc.id);
       if(existing) Object.assign(existing, doc, {updatedAt: Date.now()});
@@ -7292,6 +7341,25 @@ const Render = {
 
   showView(viewName, opts){
     opts = opts || {};
+    // "คือปัญหา จัดทำใบเสนอราคา เเล้ว ถ้ายังไม่บันทึก พอออกมันก็หายเลย" ตามด้วย "ตอนสร้าง
+    // ใบเสนอราคา ถ้าหลุดจากหน้าการสร้าง ให้ Save ไป Draft ไว้เสมอ" — รอบแรกแก้ด้วยการเด้ง
+    // confirm ถามก่อนออก (ให้ผู้ใช้เลือกเองว่าจะทิ้งหรือไม่) แต่ผู้ใช้อยากได้ที่เด็ดขาดกว่านั้น:
+    // auto-save เป็น Draft ให้เองทุกครั้งที่ออกจากหน้า editor แบบมีข้อมูลค้างอยู่ ไม่ต้องถามเลย
+    // (ครอบคลุมทุกทางออก เพราะทุกอย่างที่เรียก Render.showView() ต้องผ่านจุดนี้จุดเดียว) —
+    // ใช้ Documents.autoSaveDraft() แทน Documents.save() ปกติเพราะไม่ต้องการให้ validation
+    // ปกติ (เช่นบังคับชื่อลูกค้า) มาขวางการ auto-save ตรงนี้ได้
+    if(UI.currentView === 'editor' && UI.editorDirty && viewName !== 'editor'){
+      try{
+        const saved = Documents.autoSaveDraft(UI.editingDraft);
+        if(saved){
+          UI.editingDocId = saved.id;
+          Utils.toast(`บันทึกร่างอัตโนมัติแล้ว (${saved.docNumber})`, 'ok');
+        }
+      }catch(err){
+        console.error('autoSaveDraft failed', err);
+      }
+      UI.editorDirty = false;
+    }
     // Admin > Users is admin-only — block anyone else regardless of how they got
     // here (nav click, URL hash, browser back/forward) and bounce to Dashboard.
     if(viewName === 'admin-users'){
@@ -7342,6 +7410,15 @@ const Render = {
       if(filterTypeEl && DOC_LIST_TYPE_ALIASES.hasOwnProperty(viewName)){
         filterTypeEl.value = DOC_LIST_TYPE_ALIASES[viewName];
       }
+      // "อันนี้มีอนุมัติมาเเล้ว เเต่ทำไมไม่มี ข้อมูลในใบเสนอราคาทั้งหมด ทั้งหมดเลย" — สาเหตุคือ
+      // Render.gotoDocumentsWithStatus() (ใช้โดย action banner บน Dashboard เช่น "เอกสารเลย
+      // กำหนด") ตั้งค่า #filter-status ค้างไว้ (เช่น 'Overdue') แล้วไม่มีจุดไหนรีเซ็ตกลับเลย พอ
+      // ผู้ใช้กดเมนู sidebar "ใบเสนอราคาทั้งหมด" ทีหลัง ตัวกรองสถานะเดิมยังติดอยู่ ทำให้รายการที่
+      // ไม่ตรงสถานะนั้นหายไปหมด (เอกสารยังอยู่ครบ แค่ถูกกรองออกจากมุมมองเฉยๆ) — รีเซ็ตกลับเป็น
+      // "ทุกสถานะ" ทุกครั้งที่เข้าหน้านี้ผ่าน showView() ตรงนี้ (การเรียก gotoDocumentsWithStatus()
+      // เองยังทำงานถูกต้องเหมือนเดิม เพราะมันตั้งค่าสถานะที่ต้องการ "หลังจาก" เรียก showView() นี้อีกที)
+      const filterStatusEl = document.getElementById('filter-status');
+      if(filterStatusEl) filterStatusEl.value = '';
       Render.documentsList();
     }
     if(viewName === 'customers') Render.customersList();
@@ -10442,13 +10519,16 @@ const Modals = {
     document.getElementById('mce-authorized-sig-hint').textContent = (c && c.authorizedSignature) ? 'มีลายเซ็นแล้ว (อัปโหลดใหม่เพื่อแทนที่)' : 'ยังไม่มีลายเซ็น';
     // remember existing signature data-URIs so saving without picking a new file keeps them
     Modals._customerSigData = { preparedSignature: (c && c.preparedSignature) || '', authorizedSignature: (c && c.authorizedSignature) || '' };
+    UI.modalDirty = false; // เปิดฟอร์มใหม่ = ยังไม่มีอะไรแก้ (ดู UI.modalDirty)
     Modals.open('modal-customer-edit');
   },
   saveCustomerFromModal(){
     const name = document.getElementById('mce-name').value.trim();
     if(!name){ Utils.toast('กรุณากรอกชื่อลูกค้า', 'err'); return; }
-    const taxId = document.getElementById('mce-tax').value.trim();
-    if(!Utils.isValidThaiTaxId(taxId)){ Utils.toast('เลขประจำตัวผู้เสียภาษีไม่ถูกต้อง (ต้องเป็นตัวเลข 13 หลักที่ถูกต้อง)', 'err'); return; }
+    // "คือมีวางบิลต่างประเทศ เลขประจำตัวผู้เสียภาษี ไม่จำเป็นต้องมี คืออนุญาติให้อนุมัติได้เลย
+    // ไม่จำเป็นต้องกรอก" — เอา hard block ของ checksum เลขผู้เสียภาษีไทย 13 หลักออก (ดูเหตุผล
+    // เดียวกันใน Documents.save() ด้านบน) ลูกค้าต่างประเทศกรอกเลขภาษีรูปแบบอื่น หรือเว้นว่างไว้
+    // ก็บันทึกได้ตามปกติ ไม่ต้องผ่าน validate นี้อีกต่อไป
 
     const preparedFile = document.getElementById('mce-prepared-signature').files[0];
     const authorizedFile = document.getElementById('mce-authorized-signature').files[0];
@@ -10477,6 +10557,7 @@ const Modals = {
       }else{
         ActivityLog.log('แก้ไขลูกค้า', 'Customer', { recordId: saved.id, recordName: saved.name, before: beforeSnapshot, after: saved });
       }
+      UI.modalDirty = false; // บันทึกสำเร็จแล้ว = ไม่มีอะไร "ยังไม่ได้บันทึก" อีกต่อไป
       Modals.close('modal-customer-edit');
       Render.customersList();
       Utils.toast('บันทึกลูกค้าสำเร็จ', 'ok');
@@ -10507,6 +10588,7 @@ const Modals = {
     document.getElementById('mpe-vat').value = (p && p.vatDefault !== undefined && p.vatDefault !== null) ? p.vatDefault : '';
     document.getElementById('mpe-wht').value = (p && p.whtDefault !== undefined && p.whtDefault !== null) ? p.whtDefault : '';
     document.getElementById('mpe-active').checked = p ? (p.active !== false) : true;
+    UI.modalDirty = false;
     Modals.open('modal-product-edit');
   },
   saveProductFromModal(){
@@ -10531,6 +10613,7 @@ const Modals = {
     }else{
       ActivityLog.log('แก้ไขสินค้า/บริการ', 'Product', { recordId: saved.id, recordName: saved.name, before: beforeSnapshot, after: saved });
     }
+    UI.modalDirty = false;
     Modals.close('modal-product-edit');
     Render.productsList();
     Utils.toast('บันทึกสินค้า/บริการสำเร็จ', 'ok');
@@ -10544,8 +10627,10 @@ const Modals = {
     document.getElementById('mbe-account-no').value = b ? b.accountNo : '';
     document.getElementById('mbe-account-name').value = b ? b.accountName : '';
     document.getElementById('mbe-branch').value = b ? b.branch : '';
+    document.getElementById('mbe-remarks').value = b ? (b.remarks||'') : '';
     document.getElementById('mbe-qr-file').value = '';
     Modals._bankQrData = b ? b.qr : '';
+    UI.modalDirty = false;
     Modals.open('modal-bank-edit');
   },
   saveBankFromModal(){
@@ -10559,8 +10644,10 @@ const Modals = {
         accountNo: document.getElementById('mbe-account-no').value,
         accountName: document.getElementById('mbe-account-name').value,
         branch: document.getElementById('mbe-branch').value,
+        remarks: document.getElementById('mbe-remarks').value,
         qr: qrData || ''
       });
+      UI.modalDirty = false;
       Modals.close('modal-bank-edit');
       Render.banksList();
       Utils.toast('บันทึกบัญชีธนาคารสำเร็จ', 'ok');
@@ -13811,11 +13898,17 @@ function wireEvents(){
   // ผูก listener ทีละ input ตรงๆ จะหลุดหายไปพร้อมกับ DOM เดิมที่ถูกแทนที่
   document.querySelector('#view-editor .editor-main').addEventListener('input', ()=>{ UI.editorDirty = true; });
   document.querySelector('#view-editor .editor-main').addEventListener('change', ()=>{ UI.editorDirty = true; });
-  window.addEventListener('beforeunload', (e)=>{
+  // "ตอนสร้างใบเสนอราคา ถ้าหลุดจากหน้าการสร้าง ให้ Save ไป Draft ไว้เสมอ" — ปิด/รีเฟรชแท็บ
+  // ก็เป็น "หลุดจากหน้าการสร้าง" อีกแบบหนึ่ง เลยใช้หลักการเดียวกับ Render.showView() ด้านบน:
+  // auto-save เป็น Draft ลงเครื่อง (localStorage, ทำงานได้ทันทีแบบ sync ก่อนแท็บปิดจริง —
+  // ต่างจากการ sync ขึ้น Supabase ที่เป็น async อาจไม่ทันจบ) แทนที่จะแค่เด้ง dialog เตือนเฉยๆ
+  // แบบเดิม เมื่อ auto-save ไปแล้วไม่มีอะไรจะหายอีก จึงไม่ต้องกัน default (preventDefault) ให้
+  // เด้ง native "ออกจากหน้านี้หรือไม่" popup มากวนใจผู้ใช้อีกต่อไป
+  window.addEventListener('beforeunload', ()=>{
     if(UI.currentView === 'editor' && UI.editorDirty){
-      e.preventDefault();
-      e.returnValue = ''; // ข้อความเองกำหนดไม่ได้ในเบราว์เซอร์สมัยใหม่ แต่ยังคงเด้ง dialog เตือนไว้
-      return '';
+      try{ Documents.autoSaveDraft(UI.editingDraft); }
+      catch(err){ console.error('autoSaveDraft on beforeunload failed', err); }
+      UI.editorDirty = false;
     }
   });
   document.getElementById('btn-notif-bell').addEventListener('click', (e)=>{
@@ -13876,14 +13969,39 @@ function wireEvents(){
   document.getElementById('btn-goto-payments-from-invoices').addEventListener('click', ()=> Render.showView('payments'));
 
   // ---- Modal generic close (X button / cancel button / backdrop click) ----
+  // "ตอน add ข้อมูลต่างๆ ก็เหมือนกัน มันหลุดหายเลย" — เดิมทั้ง 2 handler ล่างนี้ปิด modal
+  // ทันทีไม่มีเงื่อนไขเลย กรอกฟอร์ม "เพิ่มลูกค้า/สินค้า/บัญชีธนาคาร" ค้างไว้แล้วเผลอกด X,
+  // กด "ยกเลิก", หรือคลิกพื้นหลังนอกกรอบ ข้อมูลหายทันที — เพิ่ม helper ถามยืนยันก่อนปิด
+  // เฉพาะ modal ที่ติด data-warn-dirty ไว้ (ดูคอมเมนต์ตรง HTML ของ 3 modal นั้น) และมีการ
+  // แก้ไขค้างจริง (UI.modalDirty) ส่วน modal อื่นๆ (ยืนยัน/แจ้งเตือน ฯลฯ) ปิดได้ทันทีเหมือนเดิม
+  const closeModalBackdrop = (backdrop)=>{
+    if(!backdrop) return;
+    if(backdrop.hasAttribute('data-warn-dirty') && UI.modalDirty){
+      Utils.confirmDialog(
+        'ยังไม่ได้บันทึก',
+        'ข้อมูลที่กรอกไว้ในฟอร์มนี้ยังไม่ได้บันทึก ถ้าปิดตอนนี้ข้อมูลจะหายไปทั้งหมด ต้องการปิดโดยไม่บันทึกหรือไม่?',
+        ()=>{ UI.modalDirty = false; backdrop.classList.remove('open'); }
+      );
+      return;
+    }
+    backdrop.classList.remove('open');
+  };
   document.querySelectorAll('[data-close]').forEach(btn=>{
     btn.addEventListener('click', (e)=>{
-      const backdrop = e.target.closest('.modal-backdrop');
-      if(backdrop) backdrop.classList.remove('open');
+      closeModalBackdrop(e.target.closest('.modal-backdrop'));
     });
   });
   document.querySelectorAll('.modal-backdrop').forEach(bd=>{
-    bd.addEventListener('click', (e)=>{ if(e.target === bd) bd.classList.remove('open'); });
+    bd.addEventListener('click', (e)=>{ if(e.target === bd) closeModalBackdrop(bd); });
+  });
+  // ผูก input/change แบบ delegation บน document เดียว (ไม่ใช่ทีละ modal) เพราะ
+  // modal-body บางส่วน (เช่นรายการสินค้าในเอกสาร) re-render DOM ใหม่บ่อยๆ — ผูกตรงๆ
+  // จะหลุดหายไปพร้อม DOM เดิมเหมือนที่ระวังไว้แล้วใน editorDirty ด้านบน
+  document.addEventListener('input', (e)=>{
+    if(e.target.closest('.modal-backdrop[data-warn-dirty].open')) UI.modalDirty = true;
+  });
+  document.addEventListener('change', (e)=>{
+    if(e.target.closest('.modal-backdrop[data-warn-dirty].open')) UI.modalDirty = true;
   });
   document.getElementById('btn-confirm-ok').addEventListener('click', ()=>{
     if(typeof UI.confirmCallback === 'function') UI.confirmCallback();

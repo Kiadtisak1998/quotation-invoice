@@ -12331,10 +12331,22 @@ const Reports = {
 
     // Stashed for exportSalesDashExcel()/exportSalesDashPDF() below so they don't
     // have to recompute the same KPI totals a second time.
+    // BUG FIX: this used to reference a variable called "totalSales" that no longer
+    // exists — it was the pre-split "QT+INV บวกกัน" figure (see the comment above the
+    // KPI cards) removed when this tab was split into separate qtAmount/invAmount
+    // cards, but this line was never updated to match, so evaluating this object
+    // literal threw "ReferenceError: totalSales is not defined" every single time
+    // this tab rendered (i.e. every time anyone opened Reports — it's the default
+    // tab). That silently broke this stash: Excel/PDF export's summary section
+    // always saw an empty {} and printed blank company/period/totals. Fixed by
+    // stashing qtAmount/invAmount (already computed above for the KPI cards)
+    // instead — keeping them separate here too, on purpose, so the exported summary
+    // doesn't reintroduce the same QT+INV double-counted "Total Sales" number this
+    // whole split was meant to get rid of.
     Reports._salesDashSummary = {
       from, to, custId,
       company: DB.company.name,
-      totalSales, qtCount: qtDocs.length, invCount: invDocs.length,
+      qtAmount, invAmount, qtCount: qtDocs.length, invCount: invDocs.length,
       receivedAmount, outstanding
     };
   },
@@ -12363,7 +12375,11 @@ const Reports = {
         ['Sales Summary'], [],
         ['Company', s.company||''],
         ['Period', (s.from?Utils.formatDateThai(s.from):'-') + ' - ' + (s.to?Utils.formatDateThai(s.to):'-')],
-        ['Total Sales', Utils.round2(s.totalSales||0)],
+        // "แยกข้อมูลกันอย่างชัดเจน" — เอา "Total Sales" ยอดรวม QT+INV เดี่ยวๆ ออก
+        // (เดิมพังอยู่แล้วเพราะอ้างตัวแปรที่ไม่มีจริง — ดูคอมเมนต์ตรง _salesDashSummary
+        // ด้านบน) แยกเป็น 2 บรรทัดแทน ให้ตรงกับการ์ด KPI บนหน้าจอที่แยกแล้วเหมือนกัน
+        ['Total Quotation Amount', Utils.round2(s.qtAmount||0)],
+        ['Total Invoice Amount', Utils.round2(s.invAmount||0)],
         ['Total Quotation', s.qtCount||0],
         ['Total Invoice', s.invCount||0],
         ['Total Received', Utils.round2(s.receivedAmount||0)],

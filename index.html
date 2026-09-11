@@ -12639,7 +12639,7 @@ const Reports = {
        อย่างชัดเจนในหน้านี้เเละหน้า Report" — เดิม "Total Sales / ยอดขายรวม" บวกยอดจาก
        ทั้ง QT และ INV เข้าด้วยกัน ซึ่งทำให้ตัวเลขดูเหมือน "เบิ้ล" เวลาใบเสนอราคาใบหนึ่งถูก
        แปลงเป็นใบแจ้งหนี้แล้ว (นับซ้ำทั้ง 2 ฉบับ) เปลี่ยนเป็นการ์ดยอดแยกประเภทชัดเจน 2 การ์ด
-       แทน ไม่มีการ์ดไหนบวกยอด QT+INV รวมกันอีกต่อไป -->
+       แทน ไม่มีการ์ดไหนบวกยอด QT+INV รวมกันอีกต่อไป */
     const qtDocs = docs.filter(d=> d.type==='QT');
     const invDocs = docs.filter(d=> d.type==='INV');
     const qtAmount = qtDocs.reduce((s,d)=> s + Calc.computeTotals(d).grandTotal, 0);

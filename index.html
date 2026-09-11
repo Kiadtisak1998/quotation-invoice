@@ -2495,14 +2495,18 @@ table.data-table tbody tr:hover{background:var(--blue-accent-soft);}
       <!-- ===================== VIEW: REPORTS ===================== -->
       <section class="view" id="view-reports">
         <div class="card" style="padding-bottom:14px;">
+          <!-- "อยากเอาแค่สำคัญๆ" — ผู้ใช้คัดเหลือเฉพาะ 4 รายงานที่จำเป็นจริง (ยอดขายรวม/ลูกหนี้/
+               ภาษี/รายรับสำหรับ Express) ตัดปุ่มแท็บ "สถานะเอกสาร"/"ลูกค้าและสินค้า/บริการ"/
+               "สรุปรายเดือน" ออกจากแถบเมนู — ตั้งใจเอาแค่ "ปุ่มแท็บ" ออกเท่านั้น ไม่ได้ลบ panel
+               HTML หรือฟังก์ชัน Reports.render.../export... ของ 3 รายงานนี้ทิ้ง (ยังอยู่ครบด้านล่าง
+               ในไฟล์) เผื่ออยากเอากลับมาใช้ทีหลัง แค่ไม่มีปุ่มให้กดเข้าถึงจาก UI แล้ว — ปลอดภัยกว่า
+               การลบทิ้งทั้งหมด เพราะ Reports.switchTab()/Reports.render() เป็น dispatcher กลาง
+               ที่ยังอ้างอิงถึง key พวกนี้อยู่ ไม่กระทบอะไรถ้าปล่อยโค้ดเดิมไว้เฉยๆ -->
           <div class="report-tabs" id="report-tabs">
             <button class="report-tab" data-report="salesdash">📊 Sales Report</button>
             <button class="report-tab" data-report="sales">ภาพรวมยอดขาย</button>
             <button class="report-tab" data-report="outstanding">ลูกหนี้และยอดค้างชำระ</button>
-            <button class="report-tab" data-report="docstatus">สถานะเอกสาร</button>
             <button class="report-tab" data-report="tax">ภาษี</button>
-            <button class="report-tab" data-report="custprod">ลูกค้าและสินค้า/บริการ</button>
-            <button class="report-tab" data-report="monthly">สรุปรายเดือน</button>
             <button class="report-tab" data-report="receiptsummary">รายงานสรุปรายรับ</button>
           </div>
         </div>
